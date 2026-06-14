@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase, Todo } from '@/lib/supabase'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { Plus, X, Trash2, Check, AlertCircle } from 'lucide-react'
-import DateInput from '@/components/DateInput'
+import DatePickerInput from '@/components/DatePickerInput'
 
 export default function TodosPage() {
   const [viewer, setViewer] = useState<'eddy' | 'judy'>('eddy')
@@ -95,56 +95,63 @@ export default function TodosPage() {
         </button>
       </div>
 
-      {/* Active */}
-      <div className="space-y-2 mb-6">
-        {activeTodos.length === 0 && (
-          <div className="text-center py-10 text-slate-400">
-            <p className="text-3xl mb-2">✅</p>
-            <p className="text-sm">할 일이 없어요!</p>
-          </div>
-        )}
-        {activeTodos.map(todo => {
-          const dl = todo.deadline ? daysLeft(todo.deadline) : null
-          const badge = ownerBadge(todo.owner || 'eddy')
-          return (
-            <div key={todo.id} onDoubleClick={() => openEdit(todo)} className={`card p-3 flex items-center gap-3 group cursor-pointer ${dl?.urgent ? 'border border-red-100' : ''}`}>
-              <button onClick={() => handleToggle(todo)}
-                className="w-6 h-6 rounded-full border-2 border-slate-300 flex-shrink-0 hover:bg-slate-100 transition-colors flex items-center justify-center">
-              </button>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium text-slate-800">{todo.title}</p>
-                  {todo.visibility === 'both' && (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${badge.cls}`}>{badge.label}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  {dl && (
-                    <div className="flex items-center gap-1">
-                      {dl.urgent && <AlertCircle size={10} className="text-red-400" />}
-                      <p className={`text-[11px] font-medium ${dl.color}`}>{dl.label}</p>
-                    </div>
-                  )}
-                  {todo.deadline && (
-                    <p className="text-[11px] text-slate-400">{format(parseISO(todo.deadline), 'yyyy.M.d')}</p>
-                  )}
-                </div>
+      {/* Two-column: active left, completed right */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Active */}
+        <div>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">할 일 ({activeTodos.length})</h3>
+          <div className="space-y-2">
+            {activeTodos.length === 0 && (
+              <div className="text-center py-8 text-slate-400">
+                <p className="text-3xl mb-2">✅</p>
+                <p className="text-sm">할 일이 없어요!</p>
               </div>
-              <button onClick={() => handleDelete(todo.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all">
-                <Trash2 size={15} />
-              </button>
-            </div>
-          )
-        })}
-      </div>
+            )}
+            {activeTodos.map(todo => {
+              const dl = todo.deadline ? daysLeft(todo.deadline) : null
+              const badge = ownerBadge(todo.owner || 'eddy')
+              return (
+                <div key={todo.id} onDoubleClick={() => openEdit(todo)} className="card p-3 flex items-center gap-3 group cursor-pointer">
+                  <button onClick={() => handleToggle(todo)}
+                    className="w-6 h-6 rounded-full border-2 border-slate-300 flex-shrink-0 hover:bg-slate-100 transition-colors flex items-center justify-center">
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-slate-800">{todo.title}</p>
+                      {todo.visibility === 'both' && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${badge.cls}`}>{badge.label}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      {dl && (
+                        <div className="flex items-center gap-1">
+                          {dl.urgent && <AlertCircle size={10} className="text-red-400" />}
+                          <p className={`text-[11px] font-medium ${dl.color}`}>{dl.label}</p>
+                        </div>
+                      )}
+                      {todo.deadline && (
+                        <p className="text-[11px] text-slate-400">{format(parseISO(todo.deadline), 'yyyy.M.d')}</p>
+                      )}
+                    </div>
+                  </div>
+                  <button onClick={() => handleDelete(todo.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
 
-      {/* Completed */}
-      {completedTodos.length > 0 && (
-        <details>
-          <summary className="text-sm font-medium text-slate-400 cursor-pointer mb-2">완료됨 ({completedTodos.length})</summary>
-          <div className="space-y-2 mt-2">
+        {/* Completed */}
+        <div>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">완료됨 ({completedTodos.length})</h3>
+          <div className="space-y-2">
+            {completedTodos.length === 0 && (
+              <p className="text-sm text-slate-300 py-2">완료된 항목이 없어요</p>
+            )}
             {completedTodos.map(todo => (
-              <div key={todo.id} className="card p-3 flex items-center gap-3 group opacity-50">
+              <div key={todo.id} onDoubleClick={() => openEdit(todo)} className="card p-3 flex items-center gap-3 group opacity-60 cursor-pointer">
                 <button onClick={() => handleToggle(todo)}
                   className="w-6 h-6 rounded-full bg-slate-300 flex-shrink-0 flex items-center justify-center">
                   <Check size={12} className="text-white" />
@@ -156,8 +163,8 @@ export default function TodosPage() {
               </div>
             ))}
           </div>
-        </details>
-      )}
+        </div>
+      </div>
 
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
@@ -171,8 +178,8 @@ export default function TodosPage() {
                 placeholder="할 일 입력" value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus />
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">데드라인 (선택)</label>
-                <DateInput value={form.deadline} onChange={v => setForm(f => ({ ...f, deadline: v }))} className="w-full" />
+                <label className="text-xs text-slate-500 mb-1 block">마감일</label>
+                <DatePickerInput value={form.deadline} onChange={v => setForm(f => ({ ...f, deadline: v }))} className="w-full" />
               </div>
               <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
                 <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${form.shared ? 'bg-blue-500' : 'bg-slate-300'}`}>

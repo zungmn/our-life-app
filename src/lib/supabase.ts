@@ -102,6 +102,8 @@ export type Birthday = {
   name: string
   birthday: string
   relation?: string
+  lunar_birthday?: string
+  show_in_calendar?: boolean
   created_at: string
 }
 

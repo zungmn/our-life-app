@@ -40,7 +40,7 @@ export default function BooksPage() {
     if (!form.title.trim()) return
     setLoading(true)
     const { error } = await supabase.from('books').insert({
-      title: form.title, author: form.author || null, cover_url: form.cover_url || null,
+      title: form.title, author: form.author || null,
       status: form.status, rating: form.rating || null, notes: form.notes || null,
       quote: form.quote || null, genre: form.genre || null,
       date_started: form.date_started || null,

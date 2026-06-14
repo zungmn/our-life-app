@@ -5,7 +5,7 @@ import { supabase, Project, ProjectMemo, Todo } from '@/lib/supabase'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, X, Trash2, Check, ChevronDown, MessageSquare, ListTodo } from 'lucide-react'
-import DateInput from '@/components/DateInput'
+import DatePickerInput from '@/components/DatePickerInput'
 
 const STATUS_INFO = {
   planned: { label: '예정', color: 'bg-slate-100 text-slate-600', dot: '#94A3B8' },
@@ -144,46 +144,47 @@ export default function ProjectsPage() {
         </button>
       </div>
 
-      {(['planned', 'in_progress', 'completed'] as const).map(status => {
-        const items = grouped[status]
-        const info = STATUS_INFO[status]
-        return (
-          <div key={status} className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 rounded-full" style={{ background: info.dot }} />
-              <h3 className="text-sm font-semibold text-slate-600">{info.label}</h3>
-              <span className="text-xs text-slate-400">({items.length})</span>
-            </div>
-            {items.length === 0 ? (
-              <p className="text-xs text-slate-300 pl-4">없음</p>
-            ) : (
-              <div className="space-y-2">
-                {items.map(project => {
-                  const dl = project.deadline ? daysLeft(project.deadline) : null
-                  return (
-                    <button key={project.id} onClick={() => openDetail(project)}
-                      className="card p-4 w-full text-left hover:shadow-md transition-shadow">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-800">{project.title}</p>
-                          <div className="flex items-center gap-3 mt-1">
-                            {dl && <p className={`text-xs ${dl.color}`}>{dl.label} · {format(parseISO(project.deadline!), 'M.d')}</p>}
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${info.color}`}>{info.label}</span>
-                            <span className="text-[10px] text-slate-400">
-                              {project.visibility === 'both' ? '함께' : project.visibility === 'eddy' ? 'Eddy' : 'Judy'}
-                            </span>
-                          </div>
-                        </div>
-                        <ChevronDown size={16} className="text-slate-300 flex-shrink-0 -rotate-90" />
-                      </div>
-                    </button>
-                  )
-                })}
+      <div className="grid md:grid-cols-3 gap-4">
+        {(['planned', 'in_progress', 'completed'] as const).map(status => {
+          const items = grouped[status]
+          const info = STATUS_INFO[status]
+          return (
+            <div key={status}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full" style={{ background: info.dot }} />
+                <h3 className="text-sm font-semibold text-slate-600">{info.label}</h3>
+                <span className="text-xs text-slate-400">({items.length})</span>
               </div>
-            )}
-          </div>
-        )
-      })}
+              {items.length === 0 ? (
+                <p className="text-xs text-slate-300 pl-4">없음</p>
+              ) : (
+                <div className="space-y-2">
+                  {items.map(project => {
+                    const dl = project.deadline ? daysLeft(project.deadline) : null
+                    return (
+                      <button key={project.id} onClick={() => openDetail(project)}
+                        className="card p-3 w-full text-left hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-slate-800 text-sm">{project.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              {dl && <p className={`text-[10px] ${dl.color}`}>{dl.label}</p>}
+                              <span className="text-[10px] text-slate-400">
+                                {project.visibility === 'both' ? '함께' : project.visibility === 'eddy' ? 'Eddy' : 'Judy'}
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronDown size={14} className="text-slate-300 flex-shrink-0 -rotate-90" />
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
 
       {/* Detail modal */}
       {selected && (
@@ -276,7 +277,7 @@ export default function ProjectsPage() {
                   placeholder="Todo 추가..." value={todoText}
                   onChange={e => setTodoText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAddTodo()} />
-                <DateInput value={todoDeadline} onChange={setTodoDeadline} className="w-36" />
+                <DatePickerInput value={todoDeadline} onChange={setTodoDeadline} className="w-44" />
                 <button onClick={handleAddTodo}
                   className="bg-blue-500 text-white px-3 rounded-lg text-sm hover:bg-blue-600 transition-colors">
                   추가
@@ -308,7 +309,7 @@ export default function ProjectsPage() {
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus />
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">마감일 (선택)</label>
-                <DateInput value={form.deadline} onChange={v => setForm(f => ({ ...f, deadline: v }))} className="w-full" />
+                <DatePickerInput value={form.deadline} onChange={v => setForm(f => ({ ...f, deadline: v }))} className="w-full" />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">상태</label>

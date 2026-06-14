@@ -25,10 +25,10 @@ export default function BirthdaysPage() {
   const [selected, setSelected] = useState<Birthday | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [showGiftModal, setShowGiftModal] = useState(false)
-  const [form, setForm] = useState({ name: '', birthday: '', relation: '' })
+  const [form, setForm] = useState({ name: '', birthday: '', lunar_birthday: '', relation: '' })
   const [giftForm, setGiftForm] = useState({ year: new Date().getFullYear().toString(), direction: 'received' as 'received' | 'given', gift: '' })
   const [filterMonth, setFilterMonth] = useState(0)
-  const [viewTab, setViewTab] = useState<'list' | 'calendar'>('list')
+  const [viewTab, setViewTab] = useState<'list' | 'calendar'>('calendar')
   const [calMonth, setCalMonth] = useState(new Date())
 
   const fetchAll = async () => {
@@ -54,8 +54,9 @@ export default function BirthdaysPage() {
       name: form.name,
       birthday: `${mm}-${dd}`,
       relation: form.relation || null,
+      lunar_birthday: form.lunar_birthday || null,
     })
-    setForm({ name: '', birthday: '', relation: '' })
+    setForm({ name: '', birthday: '', lunar_birthday: '', relation: '' })
     setShowModal(false)
     fetchAll()
   }
@@ -75,6 +76,27 @@ export default function BirthdaysPage() {
 
   const handleDeleteGift = async (id: string) => {
     await supabase.from('birthday_gifts').delete().eq('id', id)
+    fetchAll()
+  }
+
+  const handleToggleCalendar = async (bd: Birthday) => {
+    const next = !bd.show_in_calendar
+    await supabase.from('birthdays').update({ show_in_calendar: next }).eq('id', bd.id)
+    // Sync to events table: remove old birthday events then re-add if toggled on
+    await supabase.from('events').delete().eq('title', `🎂 ${bd.name}`).eq('person', 'both')
+    if (next) {
+      const now = new Date()
+      for (let y = now.getFullYear(); y <= now.getFullYear() + 2; y++) {
+        const [m, d] = bd.birthday.split('-')
+        await supabase.from('events').insert({
+          title: `🎂 ${bd.name}`,
+          date: `${y}-${m}-${d}`,
+          person: 'both',
+          note: bd.relation ? `생일 · ${bd.relation}` : '생일',
+        })
+      }
+    }
+    setSelected(s => s ? { ...s, show_in_calendar: next } : s)
     fetchAll()
   }
 
@@ -228,6 +250,7 @@ export default function BirthdaysPage() {
                   <h3 className="font-bold text-lg text-slate-800">{selected.name}</h3>
                   <p className="text-sm text-slate-400">
                     {selected.birthday.replace('-', '월 ')}일{selected.relation ? ` · ${selected.relation}` : ''}
+                    {selected.lunar_birthday && <span className="ml-1 text-slate-300">(음력 {selected.lunar_birthday.replace('-', '월 ')}일)</span>}
                   </p>
                   <p className={`text-xs font-medium mt-1 ${nextBirthday(selected.birthday).days <= 30 ? 'text-rose-500' : 'text-slate-400'}`}>
                     {nextBirthday(selected.birthday).days === 0 ? '🎂 오늘 생일!' : `D-${nextBirthday(selected.birthday).days}`}
@@ -268,7 +291,17 @@ export default function BirthdaysPage() {
               )}
             </div>
 
-            <div className="px-5 pb-5">
+            <div className="px-5 pb-5 space-y-3">
+              <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
+                onClick={() => handleToggleCalendar(selected)}>
+                <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${selected.show_in_calendar ? 'bg-rose-400' : 'bg-slate-300'}`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${selected.show_in_calendar ? 'translate-x-4' : 'translate-x-0'}`} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-700">캘린더에 표시</p>
+                  <p className="text-xs text-slate-400">{selected.show_in_calendar ? '홈/캘린더에 생일 일정으로 표시됨' : '캘린더에 표시되지 않음'}</p>
+                </div>
+              </label>
               <button onClick={() => handleDelete(selected.id)}
                 className="flex items-center gap-2 text-red-400 text-sm hover:text-red-600 transition-colors">
                 <Trash2 size={14} /> 삭제
@@ -332,6 +365,12 @@ export default function BirthdaysPage() {
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">생일 YYYY-MM-DD (월/일만 저장됩니다)</label>
                 <DateInput value={form.birthday} onChange={v => setForm(f => ({ ...f, birthday: v }))} className="w-full" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">음력 생일 (선택, MM-DD)</label>
+                <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400"
+                  placeholder="예: 04-15 (음력 4월 15일)" value={form.lunar_birthday}
+                  onChange={e => setForm(f => ({ ...f, lunar_birthday: e.target.value }))} />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">관계 (선택)</label>

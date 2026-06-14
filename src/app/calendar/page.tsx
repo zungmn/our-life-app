@@ -6,14 +6,27 @@ import { PERSON_COLORS } from '@/lib/constants'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth, isToday, isSameDay, addMonths, subMonths } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, X, Trash2 } from 'lucide-react'
+import DatePickerInput from '@/components/DatePickerInput'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+const PERSON_ORDER: Record<string, number> = { both: 0, eddy: 1, judy: 2 }
+
+function sortEvents(evs: Event[]) {
+  return [...evs].sort((a, b) => {
+    const aNo = a.time ? 1 : 0
+    const bNo = b.time ? 1 : 0
+    if (aNo !== bNo) return aNo - bNo
+    if (a.time && b.time && a.time !== b.time) return a.time.localeCompare(b.time)
+    return (PERSON_ORDER[a.person] ?? 1) - (PERSON_ORDER[b.person] ?? 1)
+  })
+}
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [events, setEvents] = useState<Event[]>([])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [editItem, setEditItem] = useState<Event | null>(null)
   const [form, setForm] = useState({ title: '', time: '', person: 'eddy' as 'eddy' | 'judy' | 'both', note: '' })
   const [loading, setLoading] = useState(false)
 
@@ -35,35 +48,51 @@ export default function CalendarPage() {
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
   const dayEvents = (date: Date) =>
-    events.filter(e => e.date === format(date, 'yyyy-MM-dd'))
+    sortEvents(events.filter(e => e.date === format(date, 'yyyy-MM-dd')))
 
   const handleDayClick = (date: Date) => {
     setSelectedDate(format(date, 'yyyy-MM-dd'))
+  }
+
+  const openAdd = () => {
+    setEditItem(null)
     setForm({ title: '', time: '', person: 'eddy', note: '' })
+    setShowModal(true)
+  }
+
+  const openEdit = (event: Event) => {
+    setEditItem(event)
+    setForm({ title: event.title, time: event.time || '', person: event.person, note: event.note || '' })
+    setShowModal(true)
   }
 
   const handleSave = async () => {
     if (!form.title.trim() || !selectedDate) return
     setLoading(true)
-    await supabase.from('events').insert({
-      title: form.title,
-      date: selectedDate,
-      time: form.time || null,
-      person: form.person,
-      note: form.note || null,
-    })
+    if (editItem) {
+      await supabase.from('events').update({
+        title: form.title, time: form.time || null, person: form.person, note: form.note || null,
+      }).eq('id', editItem.id)
+    } else {
+      await supabase.from('events').insert({
+        title: form.title, date: selectedDate, time: form.time || null, person: form.person, note: form.note || null,
+      })
+    }
     await fetchEvents()
     setShowModal(false)
+    setEditItem(null)
     setLoading(false)
   }
 
   const handleDelete = async (id: string) => {
     await supabase.from('events').delete().eq('id', id)
     await fetchEvents()
+    setShowModal(false)
+    setEditItem(null)
   }
 
   const selectedEvents = selectedDate
-    ? events.filter(e => e.date === selectedDate)
+    ? sortEvents(events.filter(e => e.date === selectedDate))
     : []
 
   return (
@@ -85,7 +114,6 @@ export default function CalendarPage() {
 
       {/* Calendar grid */}
       <div className="card overflow-hidden mb-4">
-        {/* Weekday headers */}
         <div className="grid grid-cols-7 border-b border-slate-100">
           {WEEKDAYS.map((d, i) => (
             <div key={d} className={`text-center text-xs font-medium py-2.5 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>
@@ -94,7 +122,6 @@ export default function CalendarPage() {
           ))}
         </div>
 
-        {/* Days */}
         <div className="grid grid-cols-7">
           {Array(startPad).fill(null).map((_, i) => (
             <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[110px]" />
@@ -124,7 +151,7 @@ export default function CalendarPage() {
                   {format(day, 'd')}
                 </div>
                 <div className="space-y-0.5">
-                  {de.slice(0, 2).map(event => {
+                  {de.slice(0, 5).map(event => {
                     const pc = PERSON_COLORS[event.person]
                     return (
                       <div key={event.id} className={`text-[10px] px-1 py-0.5 rounded truncate ${pc.bg} ${pc.text}`}>
@@ -132,8 +159,8 @@ export default function CalendarPage() {
                       </div>
                     )
                   })}
-                  {de.length > 2 && (
-                    <div className="text-[10px] text-slate-400 px-1">+{de.length - 2}</div>
+                  {de.length > 5 && (
+                    <div className="text-[10px] text-slate-400 px-1">+{de.length - 5}</div>
                   )}
                 </div>
               </div>
@@ -160,7 +187,7 @@ export default function CalendarPage() {
               {format(new Date(selectedDate), 'M월 d일 (EEEE)', { locale: ko })}
             </h3>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={openAdd}
               className="flex items-center gap-1 bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors"
             >
               <Plus size={14} /> 일정 추가
@@ -173,7 +200,8 @@ export default function CalendarPage() {
               {selectedEvents.map(event => {
                 const pc = PERSON_COLORS[event.person]
                 return (
-                  <div key={event.id} className={`flex items-start gap-3 p-3 rounded-lg ${pc.bg}`}>
+                  <div key={event.id} onDoubleClick={() => openEdit(event)}
+                    className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer group ${pc.bg}`}>
                     <div className="flex-1">
                       <p className={`text-sm font-medium ${pc.text}`}>{event.title}</p>
                       {event.time && <p className="text-xs text-slate-500 mt-0.5">{event.time}</p>}
@@ -191,13 +219,13 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Add event modal */}
+      {/* Add/edit event modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800">일정 추가</h3>
-              <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
+              <h3 className="font-semibold text-slate-800">{editItem ? '일정 수정' : '일정 추가'}</h3>
+              <button onClick={() => { setShowModal(false); setEditItem(null) }}><X size={20} className="text-slate-400" /></button>
             </div>
             <div className="space-y-3">
               <div>
@@ -210,6 +238,12 @@ export default function CalendarPage() {
                   autoFocus
                 />
               </div>
+              {editItem && (
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">날짜</label>
+                  <DatePickerInput value={selectedDate || ''} onChange={v => setSelectedDate(v)} className="w-full" />
+                </div>
+              )}
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">시간 (선택)</label>
                 <input
@@ -247,6 +281,12 @@ export default function CalendarPage() {
                   onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
                 />
               </div>
+              {editItem && (
+                <button onClick={() => handleDelete(editItem.id)}
+                  className="w-full border border-red-200 text-red-400 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">
+                  삭제
+                </button>
+              )}
               <button
                 onClick={handleSave}
                 disabled={loading || !form.title.trim()}

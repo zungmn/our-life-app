@@ -19,6 +19,7 @@ const toComma = (s: string) => {
 }
 
 export default function ExpensesPage() {
+  const [viewer, setViewer] = useState<'eddy' | 'judy'>('eddy')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [showModal, setShowModal] = useState(false)
@@ -34,14 +35,24 @@ export default function ExpensesPage() {
   })
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    setViewer((localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy')
+    const handler = () => setViewer((localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy')
+    window.addEventListener('viewer-change', handler)
+    return () => window.removeEventListener('viewer-change', handler)
+  }, [])
+
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd')
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd')
 
   const fetchTransactions = useCallback(async () => {
+    const v = (localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy'
     const { data } = await supabase.from('transactions').select('*')
-      .gte('date', monthStart).lte('date', monthEnd).order('date', { ascending: false })
+      .gte('date', monthStart).lte('date', monthEnd)
+      .or(`owner.eq.${v},owner.is.null`)
+      .order('date', { ascending: false })
     setTransactions(data || [])
-  }, [currentDate])
+  }, [currentDate, viewer])
 
   useEffect(() => { fetchTransactions() }, [fetchTransactions])
 
@@ -80,7 +91,7 @@ export default function ExpensesPage() {
       if (error) { alert('수정 실패: ' + error.message); setLoading(false); return }
     } else {
       const { error } = await supabase.from('transactions').insert({
-        date: form.date, type: form.type, category: form.category, amount, memo: form.memo || null,
+        date: form.date, type: form.type, category: form.category, amount, memo: form.memo || null, owner: viewer,
       })
       if (error) { alert('저장 실패: ' + error.message); setLoading(false); return }
     }
@@ -112,13 +123,22 @@ export default function ExpensesPage() {
 
   return (
     <div className="p-6 md:p-10 max-w-full">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-slate-800">💰 가계부</h2>
+        <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+          <button onClick={() => { setViewer('eddy'); localStorage.setItem('viewer', 'eddy'); window.dispatchEvent(new CustomEvent('viewer-change')) }}
+            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${viewer === 'eddy' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>Eddy</button>
+          <button onClick={() => { setViewer('judy'); localStorage.setItem('viewer', 'judy'); window.dispatchEvent(new CustomEvent('viewer-change')) }}
+            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${viewer === 'judy' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500'}`}>Judy</button>
+        </div>
+      </div>
       {/* Month nav */}
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => setCurrentDate(subMonths(currentDate, 1))}
           className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
           <ChevronLeft size={20} className="text-slate-600" />
         </button>
-        <h2 className="text-xl font-bold text-slate-800">{format(currentDate, 'yyyy년 M월')}</h2>
+        <h2 className="text-lg font-semibold text-slate-700">{format(currentDate, 'yyyy년 M월')}</h2>
         <button onClick={() => setCurrentDate(addMonths(currentDate, 1))}
           className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
           <ChevronRight size={20} className="text-slate-600" />

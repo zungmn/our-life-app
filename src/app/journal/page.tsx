@@ -78,21 +78,17 @@ export default function JournalPage() {
           <p className="text-sm">오늘의 감사함을 기록해보세요</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {entries.map(entry => (
             <button key={entry.id} onClick={() => setSelected(entry)}
-              className="card p-4 text-left w-full hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{moodEmoji(entry.mood || 'good')}</span>
-                  <div>
-                    <p className="text-sm font-medium text-slate-700">
-                      {format(new Date(entry.date), 'M월 d일 (EEEE)', { locale: ko })}
-                    </p>
-                  </div>
-                </div>
+              className="card p-4 text-left hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">{moodEmoji(entry.mood || 'good')}</span>
+                <p className="text-xs font-medium text-slate-500">
+                  {format(new Date(entry.date), 'M/d (EEE)', { locale: ko })}
+                </p>
               </div>
-              <p className="text-sm text-slate-600 line-clamp-3 whitespace-pre-wrap text-left">{entry.content}</p>
+              <p className="text-sm text-slate-600 line-clamp-4 whitespace-pre-wrap">{entry.content}</p>
             </button>
           ))}
         </div>
