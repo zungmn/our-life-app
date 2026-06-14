@@ -67,7 +67,7 @@ export default function CalendarPage() {
     : []
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-5xl mx-auto">
       {/* Month header */}
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => setCurrentDate(subMonths(currentDate, 1))}
@@ -194,7 +194,7 @@ export default function CalendarPage() {
       {/* Add event modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">일정 추가</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>

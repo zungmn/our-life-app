@@ -111,7 +111,7 @@ export default function BooksPage() {
   )
 
   return (
-    <div className="p-3 md:p-5 max-w-full mx-auto">
+    <div className="p-6 md:p-10 max-w-full mx-auto">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-bold text-slate-800">📚 독서노트</h2>

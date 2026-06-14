@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase, Todo } from '@/lib/supabase'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { Plus, X, Trash2, Check, AlertCircle } from 'lucide-react'
+import DateInput from '@/components/DateInput'
 
 export default function TodosPage() {
   const [viewer, setViewer] = useState<'eddy' | 'judy'>('eddy')
@@ -46,13 +47,14 @@ export default function TodosPage() {
 
   const handleSave = async () => {
     if (!form.title.trim()) return
-    await supabase.from('todos').insert({
+    const { error } = await supabase.from('todos').insert({
       title: form.title,
       deadline: form.deadline || null,
       completed: false,
       visibility: form.shared ? 'both' : viewer,
       owner: viewer,
     })
+    if (error) { alert('저장 실패: ' + error.message); return }
     setForm({ title: '', deadline: format(new Date(), 'yyyy-MM-dd'), shared: false })
     setShowModal(false)
     fetchTodos()
@@ -69,7 +71,7 @@ export default function TodosPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-slate-800">📋 Todo</h2>
@@ -147,7 +149,7 @@ export default function TodosPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">Todo 추가</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -158,8 +160,7 @@ export default function TodosPage() {
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus />
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">데드라인 (선택)</label>
-                <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
-                  value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
+                <DateInput value={form.deadline} onChange={v => setForm(f => ({ ...f, deadline: v }))} className="w-full" />
               </div>
               <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
                 <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${form.shared ? 'bg-blue-500' : 'bg-slate-300'}`}>

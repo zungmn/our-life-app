@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, LifeNote } from '@/lib/supabase'
 import { Plus, X, Trash2, Lock, Star, BookMarked } from 'lucide-react'
+import DateInput from '@/components/DateInput'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
@@ -57,7 +58,7 @@ export default function LifeNotesPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-2">
         <div>
           <h2 className="text-xl font-bold text-slate-800">⭐ 기록</h2>
@@ -132,7 +133,7 @@ export default function LifeNotesPage() {
       {/* Detail modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5 max-h-[80vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[80vh] overflow-y-auto">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <div className={`text-[10px] px-2 py-0.5 rounded-full inline-block mb-1 ${typeInfo[selected.type].bg} ${typeInfo[selected.type].color}`}>
@@ -184,8 +185,7 @@ export default function LifeNotesPage() {
 
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">날짜</label>
-                <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-400"
-                  value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+                <DateInput value={form.date} onChange={v => setForm(f => ({ ...f, date: v }))} className="w-full" />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">제목 *</label>

@@ -5,6 +5,7 @@ import { supabase, Project, ProjectMemo, Todo } from '@/lib/supabase'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, X, Trash2, Check, ChevronDown, MessageSquare, ListTodo } from 'lucide-react'
+import DateInput from '@/components/DateInput'
 
 const STATUS_INFO = {
   planned: { label: '예정', color: 'bg-slate-100 text-slate-600', dot: '#94A3B8' },
@@ -72,12 +73,13 @@ export default function ProjectsPage() {
 
   const handleSave = async () => {
     if (!form.title.trim()) return
-    await supabase.from('projects').insert({
+    const { error } = await supabase.from('projects').insert({
       title: form.title,
       status: form.status,
       visibility: form.visibility,
       deadline: form.deadline || null,
     })
+    if (error) { alert('저장 실패: ' + error.message); return }
     setForm({ title: '', deadline: '', status: 'planned', visibility: 'both' })
     setShowModal(false)
     fetchProjects()
@@ -131,7 +133,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-slate-800">🗂️ Project</h2>
@@ -187,7 +189,7 @@ export default function ProjectsPage() {
       {/* Detail modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-5 border-b border-slate-100">
               <div className="flex items-start justify-between">
                 <div>
@@ -295,7 +297,7 @@ export default function ProjectsPage() {
       {/* Add modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">Project 추가</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -306,8 +308,7 @@ export default function ProjectsPage() {
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus />
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">마감일 (선택)</label>
-                <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400"
-                  value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
+                <DateInput value={form.deadline} onChange={v => setForm(f => ({ ...f, deadline: v }))} className="w-full" />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">상태</label>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, Birthday, BirthdayGift } from '@/lib/supabase'
 import { Plus, X, Trash2, Gift, ChevronDown } from 'lucide-react'
+import DateInput from '@/components/DateInput'
 
 const MONTHS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
 const THIS_MONTH = new Date().getMonth() + 1
@@ -88,7 +89,7 @@ export default function BirthdaysPage() {
   const selectedGifts = selected ? (gifts[selected.id] || []).sort((a, b) => b.year - a.year) : []
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-bold text-slate-800">🎁 생일선물</h2>
@@ -158,7 +159,7 @@ export default function BirthdaysPage() {
       {/* Detail modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-5 border-b border-slate-100">
               <div className="flex items-start justify-between">
                 <div>
@@ -218,7 +219,7 @@ export default function BirthdaysPage() {
       {/* Gift add modal */}
       {showGiftModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">선물 기록 추가</h3>
               <button onClick={() => setShowGiftModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -257,7 +258,7 @@ export default function BirthdaysPage() {
       {/* Add birthday modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">생일 추가</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -267,9 +268,8 @@ export default function BirthdaysPage() {
                 placeholder="이름" value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">생일 (월/일만 저장됩니다)</label>
-                <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400"
-                  value={form.birthday} onChange={e => setForm(f => ({ ...f, birthday: e.target.value }))} />
+                <label className="text-xs text-slate-500 mb-1 block">생일 YYYY-MM-DD (월/일만 저장됩니다)</label>
+                <DateInput value={form.birthday} onChange={v => setForm(f => ({ ...f, birthday: v }))} className="w-full" />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">관계 (선택)</label>

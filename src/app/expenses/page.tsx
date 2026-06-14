@@ -6,6 +6,7 @@ import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '@/lib/co
 import { format, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { Plus, X, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
+import DateInput from '@/components/DateInput'
 
 const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES]
 
@@ -93,7 +94,7 @@ export default function ExpensesPage() {
   const formatAmt = (n: number) => n.toLocaleString() + '원'
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-5xl mx-auto">
       {/* Month nav */}
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => setCurrentDate(subMonths(currentDate, 1))}
@@ -204,7 +205,7 @@ export default function ExpensesPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">내역 추가</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -236,8 +237,7 @@ export default function ExpensesPage() {
               {/* Date */}
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">날짜</label>
-                <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
-                  value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+                <DateInput value={form.date} onChange={v => setForm(f => ({ ...f, date: v }))} className="w-full" />
               </div>
 
               {/* Category */}

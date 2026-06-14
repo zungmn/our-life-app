@@ -7,6 +7,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, a
 import { ko } from 'date-fns/locale'
 import { Plus, X, Trash2, Check, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
+import DateInput from '@/components/DateInput'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 const TODAY = format(new Date(), 'yyyy-MM-dd')
@@ -79,7 +80,8 @@ export default function Home() {
   const handleTodoSave = async () => {
     if (!todoForm.title.trim()) return
     const visibility = todoForm.shared ? 'both' : viewer
-    await supabase.from('todos').insert({ title: todoForm.title, deadline: todoForm.deadline || null, completed: false, visibility, owner: viewer })
+    const { error } = await supabase.from('todos').insert({ title: todoForm.title, deadline: todoForm.deadline || null, completed: false, visibility, owner: viewer })
+    if (error) { alert('저장 실패: ' + error.message); return }
     setTodoForm({ title: '', deadline: TODAY, shared: false })
     setShowTodoModal(false)
     await fetchAll()
@@ -98,7 +100,8 @@ export default function Home() {
   const handleProjectSave = async () => {
     if (!projectForm.title.trim()) return
     const visibility = projectForm.shared ? 'both' : viewer
-    await supabase.from('projects').insert({ title: projectForm.title, status: 'in_progress', visibility })
+    const { error } = await supabase.from('projects').insert({ title: projectForm.title, status: 'in_progress', visibility })
+    if (error) { alert('저장 실패: ' + error.message); return }
     setProjectForm({ title: '', shared: false })
     setShowProjectModal(false)
     await fetchAll()
@@ -116,7 +119,8 @@ export default function Home() {
 
   const handleEventSave = async () => {
     if (!eventForm.title.trim()) return
-    await supabase.from('events').insert({ title: eventForm.title, date: eventForm.date, time: eventForm.time || null, person: eventForm.person, note: eventForm.note || null })
+    const { error } = await supabase.from('events').insert({ title: eventForm.title, date: eventForm.date, time: eventForm.time || null, person: eventForm.person, note: eventForm.note || null })
+    if (error) { alert('저장 실패: ' + error.message); return }
     setEventForm({ title: '', date: selectedDate || TODAY, time: '', person: 'both', note: '' })
     setShowEventModal(false)
     await fetchAll()
@@ -135,12 +139,12 @@ export default function Home() {
   }
 
   return (
-    <div className="p-3 md:p-5 max-w-full mx-auto">
+    <div className="p-6 md:p-10 max-w-full mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <p className="text-xs text-slate-400">{format(new Date(), 'M월 d일 (EEEE)', { locale: ko })}</p>
-          <h2 className="text-xl font-bold text-slate-800">Eddy & Judy house 🏠</h2>
+          <p className="text-base font-semibold text-slate-500">{format(new Date(), 'M월 d일 (EEEE)', { locale: ko })}</p>
+          <h2 className="text-2xl font-bold text-slate-800">Eddy & Judy house 🏠</h2>
         </div>
         <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
           <button onClick={() => switchViewer('eddy')}
@@ -262,7 +266,7 @@ export default function Home() {
           <h3 className="font-semibold text-slate-800">{format(calDate, 'yyyy년 M월')}</h3>
           <div className="flex items-center gap-2">
             <button onClick={() => openEventModal()} className="flex items-center gap-1 bg-slate-700 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors">
-              <Plus size={13} /> 일정 추가
+              <Plus size={13} /> 추가
             </button>
             <button onClick={() => setCalDate(addMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg"><ChevronRight size={18} className="text-slate-600" /></button>
           </div>
@@ -340,7 +344,7 @@ export default function Home() {
       {/* Todo 모달 */}
       {showTodoModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">Todo 추가</h3>
               <button onClick={() => setShowTodoModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -351,8 +355,7 @@ export default function Home() {
                 onChange={e => setTodoForm(f => ({ ...f, title: e.target.value }))} autoFocus />
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">마감일</label>
-                <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
-                  value={todoForm.deadline} onChange={e => setTodoForm(f => ({ ...f, deadline: e.target.value }))} />
+                <DateInput value={todoForm.deadline} onChange={v => setTodoForm(f => ({ ...f, deadline: v }))} className="w-full" />
               </div>
               <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
                 <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${todoForm.shared ? 'bg-blue-500' : 'bg-slate-300'}`}>
@@ -374,7 +377,7 @@ export default function Home() {
       {/* Project 모달 */}
       {showProjectModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">Project 추가</h3>
               <button onClick={() => setShowProjectModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -403,7 +406,7 @@ export default function Home() {
       {/* 일정 추가 모달 */}
       {showEventModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">일정 추가</h3>
               <button onClick={() => setShowEventModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -415,8 +418,7 @@ export default function Home() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-slate-500 mb-1 block">날짜</label>
-                  <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-slate-400"
-                    value={eventForm.date} onChange={e => setEventForm(f => ({ ...f, date: e.target.value }))} />
+                  <DateInput value={eventForm.date} onChange={v => setEventForm(f => ({ ...f, date: v }))} className="w-full" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-500 mb-1 block">시간 (선택)</label>

@@ -44,7 +44,7 @@ export default function JournalPage() {
   const moodEmoji = (mood: string) => MOODS.find(m => m.value === mood)?.label.split(' ')[0] || '😊'
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-2">
         <div>
           <h2 className="text-xl font-bold text-slate-800">📔 일기</h2>
@@ -90,7 +90,7 @@ export default function JournalPage() {
       {/* Detail modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5 max-h-[80vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">{moodEmoji(selected.mood || 'good')}</span>
