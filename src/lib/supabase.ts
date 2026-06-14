@@ -57,3 +57,20 @@ export type LifeNote = {
   source?: string
   created_at: string
 }
+
+export type Todo = {
+  id: string
+  title: string
+  deadline?: string
+  completed: boolean
+  visibility: 'eddy' | 'both'
+  created_at: string
+}
+
+export type Project = {
+  id: string
+  title: string
+  status: 'in_progress' | 'completed'
+  visibility: 'eddy' | 'both'
+  created_at: string
+}
