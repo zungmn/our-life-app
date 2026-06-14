@@ -47,7 +47,7 @@ export default function JournalPage() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">📔 감사 일기</h2>
+          <h2 className="text-xl font-bold text-slate-800">📔 일기</h2>
           <div className="flex items-center gap-1 mt-0.5">
             <Lock size={11} className="text-slate-400" />
             <p className="text-xs text-slate-400">나만의 비공개 기록</p>
@@ -114,7 +114,7 @@ export default function JournalPage() {
       {/* Write modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">감사 일기 쓰기</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -143,7 +143,7 @@ export default function JournalPage() {
                 <label className="text-xs text-slate-500 mb-1 block">오늘 감사한 것들</label>
                 <textarea
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400 resize-none"
-                  rows={6}
+                  rows={16}
                   placeholder="오늘 감사했던 것들을 자유롭게 써보세요..."
                   value={form.content}
                   onChange={e => setForm(f => ({ ...f, content: e.target.value }))}

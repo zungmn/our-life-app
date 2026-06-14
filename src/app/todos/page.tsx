@@ -9,7 +9,7 @@ export default function TodosPage() {
   const [viewer, setViewer] = useState<'eddy' | 'judy'>('eddy')
   const [todos, setTodos] = useState<Todo[]>([])
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ title: '', deadline: '', visibility: 'both' as 'eddy' | 'both' | 'judy' })
+  const [form, setForm] = useState({ title: '', deadline: format(new Date(), 'yyyy-MM-dd'), shared: false })
 
   useEffect(() => {
     setViewer((localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy')
@@ -50,10 +50,10 @@ export default function TodosPage() {
       title: form.title,
       deadline: form.deadline || null,
       completed: false,
-      visibility: form.visibility,
+      visibility: form.shared ? 'both' : viewer,
       owner: viewer,
     })
-    setForm({ title: '', deadline: '', visibility: 'both' })
+    setForm({ title: '', deadline: format(new Date(), 'yyyy-MM-dd'), shared: false })
     setShowModal(false)
     fetchTodos()
   }
@@ -161,22 +161,16 @@ export default function TodosPage() {
                 <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
                   value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
               </div>
-              <div>
-                <label className="text-xs text-slate-500 mb-1 block">공개 범위</label>
-                <div className="flex gap-2">
-                  {[
-                    { v: 'both', label: '🔓 함께 보기' },
-                    { v: viewer, label: `🔒 ${viewer === 'eddy' ? 'Eddy' : 'Judy'}만` }
-                  ].map(opt => (
-                    <button key={opt.v} onClick={() => setForm(f => ({ ...f, visibility: opt.v as 'eddy' | 'both' | 'judy' }))}
-                      className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                        form.visibility === opt.v ? 'bg-blue-50 border-blue-300 text-blue-600' : 'border-slate-200 text-slate-500'
-                      }`}>
-                      {opt.label}
-                    </button>
-                  ))}
+              <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${form.shared ? 'bg-blue-500' : 'bg-slate-300'}`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.shared ? 'translate-x-4' : 'translate-x-0'}`} />
                 </div>
-              </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-700">함께 보기</p>
+                  <p className="text-xs text-slate-400">{form.shared ? 'Eddy & Judy 모두 볼 수 있음' : `${viewer === 'eddy' ? 'Eddy' : 'Judy'}만 볼 수 있음`}</p>
+                </div>
+                <input type="checkbox" className="hidden" checked={form.shared} onChange={e => setForm(f => ({ ...f, shared: e.target.checked }))} />
+              </label>
               <button onClick={handleSave} disabled={!form.title.trim()}
                 className="w-full bg-blue-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors">
                 저장

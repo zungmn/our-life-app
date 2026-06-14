@@ -160,7 +160,7 @@ export default function LifeNotesPage() {
       {/* Add modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">인생기록 추가</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -195,7 +195,7 @@ export default function LifeNotesPage() {
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">내용 *</label>
                 <textarea className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-400 resize-none"
-                  rows={5} placeholder="좋은 말이나 기록하고 싶은 내용..."
+                  rows={15} placeholder="좋은 말이나 기록하고 싶은 내용..."
                   value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} />
               </div>
               <div>
