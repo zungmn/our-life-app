@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { supabase, Event, Todo, Project } from '@/lib/supabase'
+import { supabase, Event as CalendarEvent, Todo, Project } from '@/lib/supabase'
 import { PERSON_COLORS } from '@/lib/constants'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, differenceInDays, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -14,7 +14,7 @@ export default function Home() {
   const [viewer, setViewer] = useState<'eddy' | 'judy'>('eddy')
   const [todos, setTodos] = useState<Todo[]>([])
   const [projects, setProjects] = useState<Project[]>([])
-  const [events, setEvents] = useState<Event[]>([])
+  const [events, setEvents] = useState<CalendarEvent[]>([])
   const [calDate, setCalDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showTodoModal, setShowTodoModal] = useState(false)
