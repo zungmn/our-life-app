@@ -63,7 +63,7 @@ export default function BooksPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-bold text-slate-800">📚 독서노트</h2>
         <button onClick={() => setShowModal(true)}

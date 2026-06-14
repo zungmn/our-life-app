@@ -57,7 +57,7 @@ export default function LifeNotesPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-2">
         <div>
           <h2 className="text-xl font-bold text-slate-800">⭐ 인생기록</h2>

@@ -44,7 +44,7 @@ export default function JournalPage() {
   const moodEmoji = (mood: string) => MOODS.find(m => m.value === mood)?.label.split(' ')[0] || '😊'
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-2">
         <div>
           <h2 className="text-xl font-bold text-slate-800">📔 감사 일기</h2>

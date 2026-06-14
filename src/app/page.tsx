@@ -52,7 +52,7 @@ export default function Home() {
   ]
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="mb-6">
         <p className="text-sm text-slate-400">{todayLabel}</p>
         <h2 className="text-2xl font-bold text-slate-800 mt-0.5">잘했어, 잘하고 있어 ✨</h2>
