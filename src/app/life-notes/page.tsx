@@ -52,15 +52,15 @@ export default function LifeNotesPage() {
   const displayed = filterType === 'all' ? notes : notes.filter(n => n.type === filterType)
 
   const typeInfo = {
-    advice: { label: '인생 조언', icon: Star, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' },
-    record: { label: '인생 기록', icon: BookMarked, color: 'text-pink-600', bg: 'bg-pink-50', border: 'border-pink-200' },
+    advice: { label: '중요', icon: Star, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' },
+    record: { label: '기록', icon: BookMarked, color: 'text-pink-600', bg: 'bg-pink-50', border: 'border-pink-200' },
   }
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">⭐ 인생기록</h2>
+          <h2 className="text-xl font-bold text-slate-800">⭐ 기록</h2>
           <div className="flex items-center gap-1 mt-0.5">
             <Lock size={11} className="text-slate-400" />
             <p className="text-xs text-slate-400">나만의 비공개 기록</p>
@@ -78,8 +78,8 @@ export default function LifeNotesPage() {
       <div className="flex gap-2 mb-4">
         {([
           { key: 'all', label: '전체' },
-          { key: 'advice', label: '인생 조언' },
-          { key: 'record', label: '인생 기록' },
+          { key: 'advice', label: '중요' },
+          { key: 'record', label: '기록' },
         ] as const).map(({ key, label }) => (
           <button key={key} onClick={() => setFilterType(key)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${

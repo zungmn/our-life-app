@@ -20,8 +20,20 @@ export default function ExpensesPage() {
     category: '직원',
     amount: '',
     memo: '',
-    payment_method: '노출 현금',
+    payment_method: '카드',
   })
+
+  const openModal = () => {
+    setForm({
+      date: format(new Date(), 'yyyy-MM-dd'),
+      type: 'expense',
+      category: '직원',
+      amount: '',
+      memo: '',
+      payment_method: '카드',
+    })
+    setShowModal(true)
+  }
   const [loading, setLoading] = useState(false)
 
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd')
@@ -151,7 +163,7 @@ export default function ExpensesPage() {
             ))}
           </div>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openModal}
             className="flex items-center gap-1 bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors"
           >
             <Plus size={14} /> 추가

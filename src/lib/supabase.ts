@@ -24,6 +24,7 @@ export type Transaction = {
   amount: number
   memo?: string
   payment_method?: string
+  owner?: 'eddy' | 'judy'
   created_at: string
 }
 
@@ -63,14 +64,52 @@ export type Todo = {
   title: string
   deadline?: string
   completed: boolean
-  visibility: 'eddy' | 'both'
+  visibility: 'eddy' | 'both' | 'judy'
+  owner: 'eddy' | 'judy'
+  project_id?: string
   created_at: string
 }
 
 export type Project = {
   id: string
   title: string
-  status: 'in_progress' | 'completed'
-  visibility: 'eddy' | 'both'
+  status: 'planned' | 'in_progress' | 'completed'
+  visibility: 'eddy' | 'both' | 'judy'
+  deadline?: string
+  notes?: string
+  created_at: string
+}
+
+export type ProjectMemo = {
+  id: string
+  project_id: string
+  content: string
+  author: 'eddy' | 'judy'
+  created_at: string
+}
+
+export type ArchiveItem = {
+  id: string
+  title: string
+  category?: string
+  file_url?: string
+  note?: string
+  created_at: string
+}
+
+export type Birthday = {
+  id: string
+  name: string
+  birthday: string
+  relation?: string
+  created_at: string
+}
+
+export type BirthdayGift = {
+  id: string
+  birthday_id: string
+  year: number
+  direction: 'received' | 'given'
+  gift: string
   created_at: string
 }

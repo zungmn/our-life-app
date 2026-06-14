@@ -19,18 +19,18 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showTodoModal, setShowTodoModal] = useState(false)
   const [showProjectModal, setShowProjectModal] = useState(false)
-  const [todoForm, setTodoForm] = useState({ title: '', deadline: '', visibility: 'both' as 'eddy' | 'both' })
-  const [projectForm, setProjectForm] = useState({ title: '', visibility: 'both' as 'eddy' | 'both' })
-  const today = format(new Date(), 'yyyy-MM-dd')
+  const [todoForm, setTodoForm] = useState({ title: '', deadline: '', visibility: 'both' as 'eddy' | 'both' | 'judy' })
+  const [projectForm, setProjectForm] = useState({ title: '', visibility: 'both' as 'eddy' | 'both' | 'judy' })
 
-  // 뷰어 로컬스토리지 저장
   useEffect(() => {
     const saved = localStorage.getItem('viewer') as 'eddy' | 'judy' | null
     if (saved) setViewer(saved)
   }, [])
+
   const switchViewer = (v: 'eddy' | 'judy') => {
     setViewer(v)
     localStorage.setItem('viewer', v)
+    window.dispatchEvent(new Event('viewer-change'))
   }
 
   const fetchAll = useCallback(async () => {
@@ -48,18 +48,14 @@ export default function Home() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  // 보이기 필터
-  const visibleTodos = todos.filter(t => t.visibility === 'both' || viewer === 'eddy')
-  const visibleProjects = projects.filter(p => p.visibility === 'both' || viewer === 'eddy')
+  const isVisible = (visibility: string) => {
+    if (viewer === 'eddy') return visibility === 'eddy' || visibility === 'both'
+    if (viewer === 'judy') return visibility === 'judy' || visibility === 'both'
+    return false
+  }
 
-  // 1주일 이내 데드라인
-  const urgentTodos = visibleTodos.filter(t =>
-    !t.completed && t.deadline && differenceInDays(parseISO(t.deadline), new Date()) <= 7
-  )
-  const normalTodos = visibleTodos.filter(t =>
-    !t.completed && !(t.deadline && differenceInDays(parseISO(t.deadline), new Date()) <= 7)
-  )
-  const completedTodos = visibleTodos.filter(t => t.completed)
+  const visibleTodos = todos.filter(t => isVisible(t.visibility))
+  const visibleProjects = projects.filter(p => isVisible(p.visibility) && p.status === 'in_progress')
 
   const daysLeft = (deadline: string) => {
     const d = differenceInDays(parseISO(deadline), new Date())
@@ -69,6 +65,19 @@ export default function Home() {
     return { label: `D-${d}`, color: d <= 3 ? 'text-orange-500' : 'text-slate-400' }
   }
 
+  const urgentTodos = visibleTodos.filter(t =>
+    !t.completed && t.deadline && differenceInDays(parseISO(t.deadline), new Date()) <= 7
+  )
+  const normalTodos = visibleTodos.filter(t =>
+    !t.completed && !(t.deadline && differenceInDays(parseISO(t.deadline), new Date()) <= 7)
+  )
+  const completedTodos = visibleTodos.filter(t => t.completed)
+
+  const ownerBadge = (owner: string) => ({
+    label: owner === 'eddy' ? 'E' : 'J',
+    cls: owner === 'eddy' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'
+  })
+
   const handleTodoSave = async () => {
     if (!todoForm.title.trim()) return
     await supabase.from('todos').insert({
@@ -76,6 +85,7 @@ export default function Home() {
       deadline: todoForm.deadline || null,
       completed: false,
       visibility: todoForm.visibility,
+      owner: viewer,
     })
     setTodoForm({ title: '', deadline: '', visibility: 'both' })
     setShowTodoModal(false)
@@ -115,7 +125,6 @@ export default function Home() {
     fetchAll()
   }
 
-  // 캘린더
   const monthStart = startOfMonth(calDate)
   const monthEnd = endOfMonth(calDate)
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
@@ -125,56 +134,55 @@ export default function Home() {
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
-
-      {/* 헤더 + 뷰어 전환 */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="text-sm text-slate-400">{format(new Date(), 'M월 d일 (EEEE)', { locale: ko })}</p>
-          <h2 className="text-2xl font-bold text-slate-800">잘했어, 잘하고 있어 ✨</h2>
+          <h2 className="text-2xl font-bold text-slate-800">Eddy & Judy house 🏠</h2>
         </div>
         <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
-          <button
-            onClick={() => switchViewer('eddy')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${viewer === 'eddy' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
-          >
+          <button onClick={() => switchViewer('eddy')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${viewer === 'eddy' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>
             Eddy
           </button>
-          <button
-            onClick={() => switchViewer('judy')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${viewer === 'judy' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500'}`}
-          >
+          <button onClick={() => switchViewer('judy')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${viewer === 'judy' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500'}`}>
             Judy
           </button>
         </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 mb-4">
-
-        {/* Todo List */}
+        {/* Todo */}
         <div className="card p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-800">📋 Todo List</h3>
-            <button onClick={() => setShowTodoModal(true)}
-              className="flex items-center gap-1 bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors">
-              <Plus size={13} /> 추가
-            </button>
+            <h3 className="font-semibold text-slate-800">📋 Todo</h3>
+            <div className="flex items-center gap-2">
+              <Link href="/todos" className="text-xs text-blue-500 hover:underline">전체보기</Link>
+              <button onClick={() => setShowTodoModal(true)}
+                className="flex items-center gap-1 bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors">
+                <Plus size={13} /> 추가
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1">
-            {/* 긴급 (1주일 이내) */}
             {urgentTodos.map(todo => {
               const dl = daysLeft(todo.deadline!)
+              const badge = ownerBadge(todo.owner)
               return (
                 <div key={todo.id} className="flex items-center gap-2 p-2 bg-red-50 rounded-lg group">
                   <button onClick={() => handleTodoToggle(todo)}
-                    className="w-5 h-5 rounded-full border-2 border-red-300 flex items-center justify-center flex-shrink-0 hover:bg-red-200 transition-colors">
-                  </button>
+                    className="w-5 h-5 rounded-full border-2 border-red-300 flex-shrink-0 hover:bg-red-200 transition-colors" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-800 truncate">{todo.title}</p>
                     <div className="flex items-center gap-1.5">
+                      <p className="text-sm text-slate-800 truncate">{todo.title}</p>
+                      {todo.visibility === 'both' && (
+                        <span className={`text-[9px] px-1 rounded font-bold flex-shrink-0 ${badge.cls}`}>{badge.label}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
                       <AlertCircle size={10} className="text-red-400" />
                       <p className={`text-[10px] font-medium ${dl.color}`}>{dl.label}</p>
-                      {todo.visibility === 'eddy' && <Lock size={9} className="text-slate-300" />}
                     </div>
                   </div>
                   <button onClick={() => handleTodoDelete(todo.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all">
@@ -184,28 +192,32 @@ export default function Home() {
               )
             })}
 
-            {/* 일반 */}
-            {normalTodos.map(todo => (
-              <div key={todo.id} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg group">
-                <button onClick={() => handleTodoToggle(todo)}
-                  className="w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center flex-shrink-0 hover:bg-slate-200 transition-colors">
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-800 truncate">{todo.title}</p>
-                  {todo.deadline && (
-                    <p className={`text-[10px] ${daysLeft(todo.deadline).color}`}>
-                      {daysLeft(todo.deadline).label} · {format(parseISO(todo.deadline), 'M/d')}
-                    </p>
-                  )}
+            {normalTodos.map(todo => {
+              const badge = ownerBadge(todo.owner)
+              return (
+                <div key={todo.id} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg group">
+                  <button onClick={() => handleTodoToggle(todo)}
+                    className="w-5 h-5 rounded-full border-2 border-slate-300 flex-shrink-0 hover:bg-slate-200 transition-colors" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm text-slate-800 truncate">{todo.title}</p>
+                      {todo.visibility === 'both' && (
+                        <span className={`text-[9px] px-1 rounded font-bold flex-shrink-0 ${badge.cls}`}>{badge.label}</span>
+                      )}
+                    </div>
+                    {todo.deadline && (
+                      <p className={`text-[10px] ${daysLeft(todo.deadline).color}`}>
+                        {daysLeft(todo.deadline).label} · {format(parseISO(todo.deadline), 'M/d')}
+                      </p>
+                    )}
+                  </div>
+                  <button onClick={() => handleTodoDelete(todo.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all">
+                    <Trash2 size={12} />
+                  </button>
                 </div>
-                {todo.visibility === 'eddy' && <Lock size={10} className="text-slate-300 flex-shrink-0" />}
-                <button onClick={() => handleTodoDelete(todo.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all">
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
+              )
+            })}
 
-            {/* 완료 */}
             {completedTodos.length > 0 && (
               <details className="mt-2">
                 <summary className="text-xs text-slate-400 cursor-pointer py-1">완료 {completedTodos.length}개</summary>
@@ -232,71 +244,48 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 일정 상황판 */}
+        {/* Project */}
         <div className="card p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-800">🗂️ 일정 상황판</h3>
-            <button onClick={() => setShowProjectModal(true)}
-              className="flex items-center gap-1 bg-purple-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-purple-600 transition-colors">
-              <Plus size={13} /> 추가
-            </button>
+            <h3 className="font-semibold text-slate-800">🗂️ Project</h3>
+            <div className="flex items-center gap-2">
+              <Link href="/projects" className="text-xs text-blue-500 hover:underline">전체보기</Link>
+              <button onClick={() => setShowProjectModal(true)}
+                className="flex items-center gap-1 bg-purple-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-purple-600 transition-colors">
+                <Plus size={13} /> 추가
+              </button>
+            </div>
           </div>
 
           <div className="space-y-2">
-            {/* 진행 중 */}
-            <div className="mb-3">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">진행중</p>
-              {visibleProjects.filter(p => p.status === 'in_progress').length === 0 && (
-                <p className="text-xs text-slate-400 py-1">진행 중인 프로젝트가 없어요</p>
-              )}
-              {visibleProjects.filter(p => p.status === 'in_progress').map(project => (
+            {visibleProjects.length === 0 && (
+              <p className="text-xs text-slate-400 py-1">진행 중인 프로젝트가 없어요</p>
+            )}
+            {visibleProjects.map(project => {
+              const dl = project.deadline ? daysLeft(project.deadline) : null
+              return (
                 <div key={project.id} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg group">
                   <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                  <p className="text-sm text-slate-800 flex-1 truncate">{project.title}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-800 truncate">{project.title}</p>
+                    {dl && <p className={`text-[10px] ${dl.color}`}>{dl.label}</p>}
+                  </div>
                   {project.visibility === 'eddy' && <Lock size={10} className="text-slate-300 flex-shrink-0" />}
-                  <button
-                    onClick={() => handleProjectComplete(project)}
-                    className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full hover:bg-green-200 transition-all flex-shrink-0"
-                  >
+                  <button onClick={() => handleProjectComplete(project)}
+                    className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full hover:bg-green-200 transition-all flex-shrink-0">
                     <Check size={10} /> 완료
                   </button>
                   <button onClick={() => handleProjectDelete(project.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all">
                     <Trash2 size={12} />
                   </button>
                 </div>
-              ))}
-            </div>
-
-            {/* 완료 */}
-            {visibleProjects.filter(p => p.status === 'completed').length > 0 && (
-              <details>
-                <summary className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide cursor-pointer py-1">
-                  완료 {visibleProjects.filter(p => p.status === 'completed').length}개
-                </summary>
-                <div className="space-y-1 mt-1">
-                  {visibleProjects.filter(p => p.status === 'completed').map(project => (
-                    <div key={project.id} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg group opacity-60">
-                      <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
-                      <p className="text-sm text-slate-500 line-through flex-1 truncate">{project.title}</p>
-                      <button
-                        onClick={() => handleProjectComplete(project)}
-                        className="opacity-0 group-hover:opacity-100 text-[10px] text-slate-400 hover:text-blue-500 transition-all flex-shrink-0"
-                      >
-                        되돌리기
-                      </button>
-                      <button onClick={() => handleProjectDelete(project.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all">
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
+              )
+            })}
           </div>
         </div>
       </div>
 
-      {/* 캘린더 */}
+      {/* Calendar */}
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-slate-100">
           <button onClick={() => setCalDate(subMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg">
@@ -349,16 +338,13 @@ export default function Home() {
           })}
         </div>
 
-        {/* 선택된 날 일정 + 추가 버튼 */}
         {selectedDate && (
           <div className="border-t border-slate-100 p-4">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium text-slate-700">
                 {format(new Date(selectedDate), 'M월 d일 (EEEE)', { locale: ko })}
               </p>
-              <Link href="/calendar" className="text-xs text-blue-500 hover:underline">
-                캘린더에서 추가 →
-              </Link>
+              <Link href="/calendar" className="text-xs text-blue-500 hover:underline">캘린더에서 추가 →</Link>
             </div>
             {selectedEvents.length === 0 ? (
               <p className="text-xs text-slate-400">일정이 없어요</p>
@@ -379,7 +365,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* 범례 */}
         <div className="flex gap-4 px-4 py-2 border-t border-slate-50">
           {Object.entries(PERSON_COLORS).map(([key, pc]) => (
             <div key={key} className="flex items-center gap-1.5">
@@ -390,12 +375,12 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Todo 추가 모달 */}
+      {/* Todo 모달 */}
       {showTodoModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800">할 일 추가</h3>
+              <h3 className="font-semibold text-slate-800">Todo 추가</h3>
               <button onClick={() => setShowTodoModal(false)}><X size={20} className="text-slate-400" /></button>
             </div>
             <div className="space-y-3">
@@ -410,8 +395,11 @@ export default function Home() {
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">공개 범위</label>
                 <div className="flex gap-2">
-                  {[{ v: 'both', label: '🔓 함께 보기' }, { v: 'eddy', label: '🔒 Eddy만' }].map(opt => (
-                    <button key={opt.v} onClick={() => setTodoForm(f => ({ ...f, visibility: opt.v as 'eddy' | 'both' }))}
+                  {[
+                    { v: 'both', label: '🔓 함께 보기' },
+                    { v: viewer, label: `🔒 ${viewer === 'eddy' ? 'Eddy' : 'Judy'}만` }
+                  ].map(opt => (
+                    <button key={opt.v} onClick={() => setTodoForm(f => ({ ...f, visibility: opt.v as 'eddy' | 'both' | 'judy' }))}
                       className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
                         todoForm.visibility === opt.v ? 'bg-blue-50 border-blue-300 text-blue-600' : 'border-slate-200 text-slate-500'
                       }`}>
@@ -429,12 +417,12 @@ export default function Home() {
         </div>
       )}
 
-      {/* 프로젝트 추가 모달 */}
+      {/* Project 모달 */}
       {showProjectModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800">프로젝트 추가</h3>
+              <h3 className="font-semibold text-slate-800">Project 추가</h3>
               <button onClick={() => setShowProjectModal(false)}><X size={20} className="text-slate-400" /></button>
             </div>
             <div className="space-y-3">
@@ -444,8 +432,11 @@ export default function Home() {
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">공개 범위</label>
                 <div className="flex gap-2">
-                  {[{ v: 'both', label: '🔓 함께 보기' }, { v: 'eddy', label: '🔒 Eddy만' }].map(opt => (
-                    <button key={opt.v} onClick={() => setProjectForm(f => ({ ...f, visibility: opt.v as 'eddy' | 'both' }))}
+                  {[
+                    { v: 'both', label: '🔓 함께 보기' },
+                    { v: viewer, label: `🔒 ${viewer === 'eddy' ? 'Eddy' : 'Judy'}만` }
+                  ].map(opt => (
+                    <button key={opt.v} onClick={() => setProjectForm(f => ({ ...f, visibility: opt.v as 'eddy' | 'both' | 'judy' }))}
                       className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
                         projectForm.visibility === opt.v ? 'bg-purple-50 border-purple-300 text-purple-600' : 'border-slate-200 text-slate-500'
                       }`}>
