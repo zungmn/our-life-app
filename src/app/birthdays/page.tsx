@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { supabase, Birthday, BirthdayGift } from '@/lib/supabase'
-import { Plus, X, Trash2, Gift, ChevronDown } from 'lucide-react'
+import { Plus, X, Trash2, Gift, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import DateInput from '@/components/DateInput'
 
 const MONTHS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
 const THIS_MONTH = new Date().getMonth() + 1
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 function nextBirthday(birthday: string) {
   const [m, d] = birthday.split('-').map(Number)
@@ -27,6 +28,8 @@ export default function BirthdaysPage() {
   const [form, setForm] = useState({ name: '', birthday: '', relation: '' })
   const [giftForm, setGiftForm] = useState({ year: new Date().getFullYear().toString(), direction: 'received' as 'received' | 'given', gift: '' })
   const [filterMonth, setFilterMonth] = useState(0)
+  const [viewTab, setViewTab] = useState<'list' | 'calendar'>('list')
+  const [calMonth, setCalMonth] = useState(new Date())
 
   const fetchAll = async () => {
     const { data: bds } = await supabase.from('birthdays').select('*').order('birthday', { ascending: true })
@@ -89,7 +92,7 @@ export default function BirthdaysPage() {
   const selectedGifts = selected ? (gifts[selected.id] || []).sort((a, b) => b.year - a.year) : []
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-full">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-bold text-slate-800">🎁 생일선물</h2>
@@ -101,7 +104,65 @@ export default function BirthdaysPage() {
         </button>
       </div>
 
+      {/* View toggle */}
+      <div className="flex gap-1 mb-4">
+        {[{ k: 'list', l: '목록' }, { k: 'calendar', l: '캘린더' }].map(t => (
+          <button key={t.k} onClick={() => setViewTab(t.k as typeof viewTab)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${viewTab === t.k ? 'bg-rose-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      {/* Birthday calendar */}
+      {viewTab === 'calendar' && (
+        <div className="card overflow-hidden mb-4">
+          <div className="flex items-center justify-between p-3 border-b border-slate-100">
+            <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft size={16} /></button>
+            <span className="font-semibold text-slate-800">{calMonth.getFullYear()}년 {calMonth.getMonth() + 1}월</span>
+            <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronRight size={16} /></button>
+          </div>
+          <div className="grid grid-cols-7 border-b border-slate-100">
+            {WEEKDAYS.map((d, i) => (
+              <div key={d} className={`text-center text-xs font-medium py-2 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {(() => {
+              const m = calMonth.getMonth() + 1
+              const year = calMonth.getFullYear()
+              const firstDay = new Date(year, m - 1, 1)
+              const lastDay = new Date(year, m, 0)
+              const pad = firstDay.getDay()
+              const daysInMonth = lastDay.getDate()
+              const cells = []
+              for (let i = 0; i < pad; i++) cells.push(<div key={`p${i}`} className="min-h-[70px] border-b border-r border-slate-50" />)
+              for (let d = 1; d <= daysInMonth; d++) {
+                const mm = String(m).padStart(2, '0')
+                const dd = String(d).padStart(2, '0')
+                const key = `${mm}-${dd}`
+                const bds = birthdays.filter(b => b.birthday === key)
+                const dow = new Date(year, m - 1, d).getDay()
+                const isLast = d + pad > daysInMonth - 7 + pad
+                cells.push(
+                  <div key={d} className={`min-h-[70px] p-1 border-b border-r border-slate-50 ${isLast ? 'border-b-0' : ''}`}>
+                    <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-0.5 ${dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{d}</div>
+                    {bds.map(b => (
+                      <button key={b.id} onClick={() => setSelected(b)} className="w-full text-left">
+                        <div className="text-[10px] bg-rose-100 text-rose-600 px-1 py-0.5 rounded truncate mb-0.5">🎂 {b.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                )
+              }
+              return cells
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* Month filter */}
+      {viewTab === 'list' && <>
       <div className="flex gap-1.5 flex-wrap mb-4">
         <button onClick={() => setFilterMonth(0)}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterMonth === 0 ? 'bg-rose-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
@@ -155,6 +216,7 @@ export default function BirthdaysPage() {
           })}
         </div>
       )}
+      </>}
 
       {/* Detail modal */}
       {selected && (

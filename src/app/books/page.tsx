@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, Book } from '@/lib/supabase'
 import { Plus, X, Trash2, Star } from 'lucide-react'
+import DateInput from '@/components/DateInput'
 import { format } from 'date-fns'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -38,13 +39,14 @@ export default function BooksPage() {
   const handleSave = async () => {
     if (!form.title.trim()) return
     setLoading(true)
-    await supabase.from('books').insert({
+    const { error } = await supabase.from('books').insert({
       title: form.title, author: form.author || null, cover_url: form.cover_url || null,
       status: form.status, rating: form.rating || null, notes: form.notes || null,
-      quote: (form as any).quote || null, genre: (form as any).genre || null,
+      quote: form.quote || null, genre: form.genre || null,
       date_started: form.date_started || null,
       date_finished: form.date_finished || null,
     })
+    if (error) { alert('저장 실패: ' + error.message); setLoading(false); return }
     await fetchBooks()
     setShowModal(false)
     setForm({ title: '', author: '', cover_url: '', genre: '자기계발', status: 'reading', rating: 0, notes: '', quote: '', date_started: '', date_finished: '' })
@@ -414,13 +416,11 @@ export default function BooksPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-xs text-slate-500 mb-1 block">독서 시작</label>
-                    <input type="date" className="w-full border border-slate-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-blue-400"
-                      value={form.date_started} onChange={e => setForm(f => ({ ...f, date_started: e.target.value }))} />
+                    <DateInput value={form.date_started} onChange={v => setForm(f => ({ ...f, date_started: v }))} className="w-full text-xs" />
                   </div>
                   <div>
                     <label className="text-xs text-slate-500 mb-1 block">완독일</label>
-                    <input type="date" className="w-full border border-slate-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-blue-400"
-                      value={form.date_finished} onChange={e => setForm(f => ({ ...f, date_finished: e.target.value }))} />
+                    <DateInput value={form.date_finished} onChange={v => setForm(f => ({ ...f, date_finished: v }))} className="w-full text-xs" />
                   </div>
                 </div>
               </div>

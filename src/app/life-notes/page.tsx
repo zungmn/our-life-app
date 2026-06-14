@@ -10,6 +10,7 @@ import { ko } from 'date-fns/locale'
 export default function LifeNotesPage() {
   const [notes, setNotes] = useState<LifeNote[]>([])
   const [showModal, setShowModal] = useState(false)
+  const [editItem, setEditItem] = useState<LifeNote | null>(null)
   const [selected, setSelected] = useState<LifeNote | null>(null)
   const [filterType, setFilterType] = useState<'all' | 'record' | 'advice'>('all')
   const [form, setForm] = useState({
@@ -28,18 +29,30 @@ export default function LifeNotesPage() {
 
   useEffect(() => { fetchNotes() }, [])
 
+  const openEdit = (note: LifeNote) => {
+    setSelected(null)
+    setForm({ date: note.date, title: note.title, content: note.content, type: note.type, source: note.source || '' })
+    setEditItem(note)
+    setShowModal(true)
+  }
+
   const handleSave = async () => {
     if (!form.title.trim() || !form.content.trim()) return
     setLoading(true)
-    await supabase.from('life_notes').insert({
-      date: form.date,
-      title: form.title,
-      content: form.content,
-      type: form.type,
-      source: form.source || null,
-    })
+    if (editItem) {
+      const { error } = await supabase.from('life_notes').update({
+        date: form.date, title: form.title, content: form.content, type: form.type, source: form.source || null,
+      }).eq('id', editItem.id)
+      if (error) { alert('수정 실패: ' + error.message); setLoading(false); return }
+    } else {
+      const { error } = await supabase.from('life_notes').insert({
+        date: form.date, title: form.title, content: form.content, type: form.type, source: form.source || null,
+      })
+      if (error) { alert('저장 실패: ' + error.message); setLoading(false); return }
+    }
     await fetchNotes()
     setShowModal(false)
+    setEditItem(null)
     setForm({ date: format(new Date(), 'yyyy-MM-dd'), title: '', content: '', type: 'advice', source: '' })
     setLoading(false)
   }
@@ -58,7 +71,7 @@ export default function LifeNotesPage() {
   }
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-full">
       <div className="flex items-center justify-between mb-2">
         <div>
           <h2 className="text-xl font-bold text-slate-800">⭐ 기록</h2>
@@ -150,10 +163,13 @@ export default function LifeNotesPage() {
             <div className={`rounded-xl p-4 mb-4 ${typeInfo[selected.type].bg}`}>
               <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{selected.content}</p>
             </div>
-            <button onClick={() => handleDelete(selected.id)}
-              className="flex items-center gap-2 text-red-400 text-sm hover:text-red-600 transition-colors">
-              <Trash2 size={14} /> 삭제
-            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={() => openEdit(selected)} className="text-blue-500 text-sm hover:text-blue-700 transition-colors">✏️ 수정</button>
+              <button onClick={() => handleDelete(selected.id)}
+                className="flex items-center gap-2 text-red-400 text-sm hover:text-red-600 transition-colors">
+                <Trash2 size={14} /> 삭제
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -163,7 +179,7 @@ export default function LifeNotesPage() {
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800">인생기록 추가</h3>
+              <h3 className="font-semibold text-slate-800">{editItem ? '기록 수정' : '인생기록 추가'}</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
             </div>
             <div className="space-y-3">

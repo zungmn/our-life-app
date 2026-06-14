@@ -50,6 +50,6 @@ export const MOODS = [
 
 export const PERSON_COLORS = {
   eddy: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', dot: '#3B82F6', label: 'Eddy' },
-  judy: { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300', dot: '#EC4899', label: 'Judy' },
-  both: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300', dot: '#8B5CF6', label: '함께' },
+  judy: { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-300', dot: '#EAB308', label: 'Judy' },
+  both: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-300', dot: '#10B981', label: '함께' },
 }

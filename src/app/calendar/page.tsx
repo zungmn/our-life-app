@@ -67,7 +67,7 @@ export default function CalendarPage() {
     : []
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-full">
       {/* Month header */}
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => setCurrentDate(subMonths(currentDate, 1))}
@@ -97,7 +97,7 @@ export default function CalendarPage() {
         {/* Days */}
         <div className="grid grid-cols-7">
           {Array(startPad).fill(null).map((_, i) => (
-            <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[70px]" />
+            <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[110px]" />
           ))}
           {days.map((day, i) => {
             const dateStr = format(day, 'yyyy-MM-dd')
@@ -111,7 +111,7 @@ export default function CalendarPage() {
               <div
                 key={dateStr}
                 onClick={() => handleDayClick(day)}
-                className={`border-b border-r border-slate-50 min-h-[70px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${
+                className={`border-b border-r border-slate-50 min-h-[110px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${
                   isSelected ? 'bg-blue-50' : ''
                 } ${isLastRow ? 'border-b-0' : ''}`}
               >

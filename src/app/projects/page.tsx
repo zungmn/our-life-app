@@ -27,11 +27,11 @@ export default function ProjectsPage() {
   const [todos, setTodos] = useState<Todo[]>([])
   const [memoText, setMemoText] = useState('')
   const [todoText, setTodoText] = useState('')
+  const [todoDeadline, setTodoDeadline] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({
-    title: '', deadline: '',
-    status: 'planned' as Project['status'],
-    visibility: 'both' as Project['visibility']
+    title: '', deadline: '', status: 'planned' as Project['status'],
+    shared: true, memo: ''
   })
 
   useEffect(() => {
@@ -73,14 +73,15 @@ export default function ProjectsPage() {
 
   const handleSave = async () => {
     if (!form.title.trim()) return
-    const { error } = await supabase.from('projects').insert({
-      title: form.title,
-      status: form.status,
-      visibility: form.visibility,
-      deadline: form.deadline || null,
-    })
+    const visibility = form.shared ? 'both' : viewer
+    const { data: proj, error } = await supabase.from('projects').insert({
+      title: form.title, status: form.status, visibility, deadline: form.deadline || null,
+    }).select().single()
     if (error) { alert('저장 실패: ' + error.message); return }
-    setForm({ title: '', deadline: '', status: 'planned', visibility: 'both' })
+    if (form.memo.trim() && proj) {
+      await supabase.from('project_memos').insert({ project_id: proj.id, content: form.memo, author: viewer })
+    }
+    setForm({ title: '', deadline: '', status: 'planned', shared: true, memo: '' })
     setShowModal(false)
     fetchProjects()
   }
@@ -111,13 +112,11 @@ export default function ProjectsPage() {
   const handleAddTodo = async () => {
     if (!todoText.trim() || !selected) return
     await supabase.from('todos').insert({
-      title: todoText,
-      completed: false,
-      visibility: selected.visibility,
-      owner: viewer,
-      project_id: selected.id,
+      title: todoText, completed: false, visibility: selected.visibility,
+      owner: viewer, project_id: selected.id, deadline: todoDeadline || null,
     })
     setTodoText('')
+    setTodoDeadline('')
     fetchDetail(selected)
   }
 
@@ -133,7 +132,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-full">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-slate-800">🗂️ Project</h2>
@@ -272,11 +271,12 @@ export default function ProjectsPage() {
                   </div>
                 ))}
               </div>
-              <div className="flex gap-2">
-                <input className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+              <div className="flex gap-2 flex-wrap">
+                <input className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
                   placeholder="Todo 추가..." value={todoText}
                   onChange={e => setTodoText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAddTodo()} />
+                <DateInput value={todoDeadline} onChange={setTodoDeadline} className="w-36" />
                 <button onClick={handleAddTodo}
                   className="bg-blue-500 text-white px-3 rounded-lg text-sm hover:bg-blue-600 transition-colors">
                   추가
@@ -323,18 +323,21 @@ export default function ProjectsPage() {
                   ))}
                 </div>
               </div>
-              <div>
-                <label className="text-xs text-slate-500 mb-1 block">공개 범위</label>
-                <div className="flex gap-1">
-                  {VIS_OPTIONS.map(opt => (
-                    <button key={opt.v} onClick={() => setForm(f => ({ ...f, visibility: opt.v as Project['visibility'] }))}
-                      className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                        form.visibility === opt.v ? 'bg-purple-50 border-purple-300 text-purple-600' : 'border-slate-200 text-slate-500'
-                      }`}>
-                      {opt.label}
-                    </button>
-                  ))}
+              <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${form.shared ? 'bg-purple-500' : 'bg-slate-300'}`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.shared ? 'translate-x-4' : 'translate-x-0'}`} />
                 </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-700">함께 보기</p>
+                  <p className="text-xs text-slate-400">{form.shared ? 'Eddy & Judy 모두 볼 수 있음' : `${viewer === 'eddy' ? 'Eddy' : 'Judy'}만 볼 수 있음`}</p>
+                </div>
+                <input type="checkbox" className="hidden" checked={form.shared} onChange={e => setForm(f => ({ ...f, shared: e.target.checked }))} />
+              </label>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">첫 번째 메모 (선택)</label>
+                <textarea className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400 resize-none"
+                  rows={3} placeholder="진행 상황, 메모..."
+                  value={form.memo} onChange={e => setForm(f => ({ ...f, memo: e.target.value }))} />
               </div>
               <button onClick={handleSave} disabled={!form.title.trim()}
                 className="w-full bg-purple-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-purple-600 disabled:opacity-50 transition-colors">

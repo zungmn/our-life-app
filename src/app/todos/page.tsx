@@ -10,6 +10,7 @@ export default function TodosPage() {
   const [viewer, setViewer] = useState<'eddy' | 'judy'>('eddy')
   const [todos, setTodos] = useState<Todo[]>([])
   const [showModal, setShowModal] = useState(false)
+  const [editItem, setEditItem] = useState<Todo | null>(null)
   const [form, setForm] = useState({ title: '', deadline: format(new Date(), 'yyyy-MM-dd'), shared: false })
 
   useEffect(() => {
@@ -45,17 +46,28 @@ export default function TodosPage() {
     cls: owner === 'eddy' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'
   })
 
+  const openEdit = (todo: Todo) => {
+    setForm({ title: todo.title, deadline: todo.deadline || format(new Date(), 'yyyy-MM-dd'), shared: todo.visibility === 'both' })
+    setEditItem(todo)
+    setShowModal(true)
+  }
+
   const handleSave = async () => {
     if (!form.title.trim()) return
-    const { error } = await supabase.from('todos').insert({
-      title: form.title,
-      deadline: form.deadline || null,
-      completed: false,
-      visibility: form.shared ? 'both' : viewer,
-      owner: viewer,
-    })
-    if (error) { alert('저장 실패: ' + error.message); return }
+    if (editItem) {
+      const { error } = await supabase.from('todos').update({
+        title: form.title, deadline: form.deadline || null, visibility: form.shared ? 'both' : viewer,
+      }).eq('id', editItem.id)
+      if (error) { alert('수정 실패: ' + error.message); return }
+    } else {
+      const { error } = await supabase.from('todos').insert({
+        title: form.title, deadline: form.deadline || null, completed: false,
+        visibility: form.shared ? 'both' : viewer, owner: viewer,
+      })
+      if (error) { alert('저장 실패: ' + error.message); return }
+    }
     setForm({ title: '', deadline: format(new Date(), 'yyyy-MM-dd'), shared: false })
+    setEditItem(null)
     setShowModal(false)
     fetchTodos()
   }
@@ -71,13 +83,13 @@ export default function TodosPage() {
   }
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-full">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-slate-800">📋 Todo</h2>
           <p className="text-xs text-slate-400 mt-0.5">{viewer === 'eddy' ? 'Eddy' : 'Judy'} 화면</p>
         </div>
-        <button onClick={() => setShowModal(true)}
+        <button onClick={() => { setEditItem(null); setForm({ title: '', deadline: format(new Date(), 'yyyy-MM-dd'), shared: false }); setShowModal(true) }}
           className="flex items-center gap-1 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors">
           <Plus size={16} /> 추가
         </button>
@@ -95,7 +107,7 @@ export default function TodosPage() {
           const dl = todo.deadline ? daysLeft(todo.deadline) : null
           const badge = ownerBadge(todo.owner || 'eddy')
           return (
-            <div key={todo.id} className={`card p-3 flex items-center gap-3 group ${dl?.urgent ? 'border border-red-100' : ''}`}>
+            <div key={todo.id} onDoubleClick={() => openEdit(todo)} className={`card p-3 flex items-center gap-3 group cursor-pointer ${dl?.urgent ? 'border border-red-100' : ''}`}>
               <button onClick={() => handleToggle(todo)}
                 className="w-6 h-6 rounded-full border-2 border-slate-300 flex-shrink-0 hover:bg-slate-100 transition-colors flex items-center justify-center">
               </button>
@@ -151,7 +163,7 @@ export default function TodosPage() {
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800">Todo 추가</h3>
+              <h3 className="font-semibold text-slate-800">{editItem ? 'Todo 수정' : 'Todo 추가'}</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
             </div>
             <div className="space-y-3">
