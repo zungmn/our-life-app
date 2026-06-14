@@ -12,7 +12,7 @@ interface Props {
   className?: string
 }
 
-export default function DatePickerInput({ value, onChange, className = '', placeholder }: Props) {
+export default function DatePickerInput({ value, onChange, className = '' }: Props) {
   const [open, setOpen] = useState(false)
   const safeDate = value && value.length >= 7 ? new Date(value.slice(0, 7) + '-01') : new Date()
   const [calMonth, setCalMonth] = useState(safeDate)
