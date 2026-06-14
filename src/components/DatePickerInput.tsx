@@ -10,7 +10,6 @@ interface Props {
   value: string
   onChange: (v: string) => void
   className?: string
-  placeholder?: string
 }
 
 export default function DatePickerInput({ value, onChange, className = '', placeholder }: Props) {
@@ -31,7 +30,7 @@ export default function DatePickerInput({ value, onChange, className = '', place
   return (
     <div className={`relative ${className}`}>
       <div className="flex gap-1">
-        <DateInput value={value} onChange={onChange} className="flex-1" placeholder={placeholder} />
+        <DateInput value={value} onChange={onChange} className="flex-1" />
         <button type="button" onClick={() => setOpen(o => !o)}
           className="px-2.5 border border-slate-200 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors flex-shrink-0 flex items-center">
           <Calendar size={14} />
