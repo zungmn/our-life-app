@@ -26,6 +26,7 @@ export default function BirthdaysPage() {
   const [showModal, setShowModal] = useState(false)
   const [showGiftModal, setShowGiftModal] = useState(false)
   const [form, setForm] = useState({ name: '', birthday: '', lunar_birthday: '', relation: '' })
+  const [editItem, setEditItem] = useState<Birthday | null>(null)
   const [giftForm, setGiftForm] = useState({ year: new Date().getFullYear().toString(), direction: 'received' as 'received' | 'given', gift: '' })
   const [filterMonth, setFilterMonth] = useState(0)
   const [viewTab, setViewTab] = useState<'list' | 'calendar'>('calendar')
@@ -47,16 +48,37 @@ export default function BirthdaysPage() {
 
   useEffect(() => { fetchAll() }, [])
 
+  const openEdit = (bd: Birthday) => {
+    setSelected(null)
+    setEditItem(bd)
+    setForm({
+      name: bd.name,
+      birthday: `2000-${bd.birthday}`,
+      lunar_birthday: bd.lunar_birthday || '',
+      relation: bd.relation || '',
+    })
+    setShowModal(true)
+  }
+
   const handleSave = async () => {
     if (!form.name.trim() || !form.birthday) return
-    const [, mm, dd] = form.birthday.split('-')
-    await supabase.from('birthdays').insert({
+    const parts = form.birthday.split('-')
+    const mm = parts.length >= 3 ? parts[1] : parts[0]
+    const dd = parts.length >= 3 ? parts[2] : parts[1]
+    if (!mm || !dd) return
+    const payload = {
       name: form.name,
       birthday: `${mm}-${dd}`,
       relation: form.relation || null,
       lunar_birthday: form.lunar_birthday || null,
-    })
+    }
+    if (editItem) {
+      await supabase.from('birthdays').update(payload).eq('id', editItem.id)
+    } else {
+      await supabase.from('birthdays').insert(payload)
+    }
     setForm({ name: '', birthday: '', lunar_birthday: '', relation: '' })
+    setEditItem(null)
     setShowModal(false)
     fetchAll()
   }
@@ -302,10 +324,16 @@ export default function BirthdaysPage() {
                   <p className="text-xs text-slate-400">{selected.show_in_calendar ? '홈/캘린더에 생일 일정으로 표시됨' : '캘린더에 표시되지 않음'}</p>
                 </div>
               </label>
-              <button onClick={() => handleDelete(selected.id)}
-                className="flex items-center gap-2 text-red-400 text-sm hover:text-red-600 transition-colors">
-                <Trash2 size={14} /> 삭제
-              </button>
+              <div className="flex items-center gap-4">
+                <button onClick={() => openEdit(selected)}
+                  className="flex items-center gap-1 text-blue-500 text-sm hover:text-blue-700 transition-colors">
+                  ✏️ 수정
+                </button>
+                <button onClick={() => handleDelete(selected.id)}
+                  className="flex items-center gap-2 text-red-400 text-sm hover:text-red-600 transition-colors">
+                  <Trash2 size={14} /> 삭제
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -355,8 +383,8 @@ export default function BirthdaysPage() {
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800">생일 추가</h3>
-              <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
+              <h3 className="font-semibold text-slate-800">{editItem ? '생일 수정' : '생일 추가'}</h3>
+              <button onClick={() => { setShowModal(false); setEditItem(null) }}><X size={20} className="text-slate-400" /></button>
             </div>
             <div className="space-y-3">
               <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400"

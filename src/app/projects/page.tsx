@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase, Project, ProjectMemo, Todo } from '@/lib/supabase'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Plus, X, Trash2, Check, ChevronDown, MessageSquare, ListTodo } from 'lucide-react'
+import { Plus, X, Trash2, Check, ChevronDown, MessageSquare, ListTodo, Paperclip } from 'lucide-react'
 import DatePickerInput from '@/components/DatePickerInput'
 
 const STATUS_INFO = {
@@ -33,6 +33,10 @@ export default function ProjectsPage() {
     title: '', deadline: '', status: 'planned' as Project['status'],
     shared: true, memo: ''
   })
+  const [pendingTodos, setPendingTodos] = useState<{ text: string; deadline: string }[]>([])
+  const [pendingTodoText, setPendingTodoText] = useState('')
+  const [pendingTodoDeadline, setPendingTodoDeadline] = useState('')
+  const [uploadingFile, setUploadingFile] = useState(false)
 
   useEffect(() => {
     setViewer((localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy')
@@ -81,8 +85,17 @@ export default function ProjectsPage() {
     if (form.memo.trim() && proj) {
       await supabase.from('project_memos').insert({ project_id: proj.id, content: form.memo, author: viewer })
     }
+    for (const t of pendingTodos) {
+      if (t.text.trim() && proj) {
+        await supabase.from('todos').insert({ title: t.text, completed: false, visibility, owner: viewer, project_id: proj.id, deadline: t.deadline || null })
+      }
+    }
     setForm({ title: '', deadline: '', status: 'planned', shared: true, memo: '' })
+    setPendingTodos([])
+    setPendingTodoText('')
+    setPendingTodoDeadline('')
     setShowModal(false)
+    if (proj) { setSelected(proj); fetchDetail(proj) }
     fetchProjects()
   }
 
@@ -107,6 +120,19 @@ export default function ProjectsPage() {
     })
     setMemoText('')
     fetchDetail(selected)
+  }
+
+  const handleFileUpload = async (file: File, projectId: string) => {
+    setUploadingFile(true)
+    const ext = file.name.split('.').pop()
+    const path = `projects/${projectId}_${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('archive').upload(path, file, { upsert: true })
+    if (error) { alert('파일 업로드 실패: ' + error.message); setUploadingFile(false); return }
+    const { data } = supabase.storage.from('archive').getPublicUrl(path)
+    await supabase.from('projects').update({ file_url: data.publicUrl }).eq('id', projectId)
+    setSelected(s => s ? { ...s, file_url: data.publicUrl } : s)
+    await fetchProjects()
+    setUploadingFile(false)
   }
 
   const handleAddTodo = async () => {
@@ -272,17 +298,39 @@ export default function ProjectsPage() {
                   </div>
                 ))}
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <input className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+              <div className="space-y-2">
+                <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
                   placeholder="Todo 추가..." value={todoText}
                   onChange={e => setTodoText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAddTodo()} />
-                <DatePickerInput value={todoDeadline} onChange={setTodoDeadline} className="w-44" />
-                <button onClick={handleAddTodo}
-                  className="bg-blue-500 text-white px-3 rounded-lg text-sm hover:bg-blue-600 transition-colors">
-                  추가
-                </button>
+                <div className="flex gap-2">
+                  <DatePickerInput value={todoDeadline} onChange={setTodoDeadline} className="flex-1" />
+                  <button onClick={handleAddTodo}
+                    className="bg-blue-500 text-white px-4 rounded-lg text-sm hover:bg-blue-600 transition-colors flex-shrink-0">
+                    추가
+                  </button>
+                </div>
               </div>
+            </div>
+
+            {/* File attachment */}
+            <div className="p-5 border-b border-slate-100">
+              <div className="flex items-center gap-2 mb-3">
+                <Paperclip size={14} className="text-slate-500" />
+                <h4 className="text-sm font-semibold text-slate-700">첨부파일</h4>
+              </div>
+              {selected.file_url && (
+                <a href={selected.file_url} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-blue-500 hover:underline block mb-2 truncate">
+                  📎 첨부파일 보기
+                </a>
+              )}
+              <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer hover:text-slate-700 transition-colors">
+                <input type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, selected.id) }} />
+                <span className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                  {uploadingFile ? '업로드 중...' : selected.file_url ? '파일 교체' : '파일 첨부'}
+                </span>
+              </label>
             </div>
 
             <div className="p-5">
@@ -340,9 +388,37 @@ export default function ProjectsPage() {
                   rows={3} placeholder="진행 상황, 메모..."
                   value={form.memo} onChange={e => setForm(f => ({ ...f, memo: e.target.value }))} />
               </div>
+              {/* Pending todos */}
+              <div className="border border-slate-100 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <ListTodo size={13} className="text-slate-500" />
+                  <span className="text-xs font-semibold text-slate-600">관련 Todo</span>
+                </div>
+                {pendingTodos.length > 0 && (
+                  <div className="space-y-1 mb-2">
+                    {pendingTodos.map((t, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <div className="w-3 h-3 rounded-full border border-slate-300 flex-shrink-0" />
+                        <span className="flex-1 text-slate-700">{t.text}</span>
+                        {t.deadline && <span className="text-slate-400">{t.deadline}</span>}
+                        <button onClick={() => setPendingTodos(p => p.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-400"><X size={12} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 mb-1"
+                  placeholder="Todo 추가..." value={pendingTodoText}
+                  onChange={e => setPendingTodoText(e.target.value)} />
+                <div className="flex gap-2">
+                  <DatePickerInput value={pendingTodoDeadline} onChange={setPendingTodoDeadline} className="flex-1" />
+                  <button onClick={() => { if (pendingTodoText.trim()) { setPendingTodos(p => [...p, { text: pendingTodoText, deadline: pendingTodoDeadline }]); setPendingTodoText(''); setPendingTodoDeadline('') } }}
+                    className="bg-blue-500 text-white px-3 rounded-lg text-xs hover:bg-blue-600 transition-colors flex-shrink-0">추가</button>
+                </div>
+              </div>
+
               <button onClick={handleSave} disabled={!form.title.trim()}
                 className="w-full bg-purple-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-purple-600 disabled:opacity-50 transition-colors">
-                저장
+                저장 후 상세 열기
               </button>
             </div>
           </div>

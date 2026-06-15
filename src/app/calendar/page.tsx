@@ -3,9 +3,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, Event } from '@/lib/supabase'
 import { PERSON_COLORS } from '@/lib/constants'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth, isToday, isSameDay, addMonths, subMonths } from 'date-fns'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO, isWithinInterval } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, X, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, Paperclip } from 'lucide-react'
 import DatePickerInput from '@/components/DatePickerInput'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -27,8 +27,9 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState<Event | null>(null)
-  const [form, setForm] = useState({ title: '', time: '', person: 'eddy' as 'eddy' | 'judy' | 'both', note: '' })
+  const [form, setForm] = useState({ title: '', end_date: '', time: '', person: 'eddy' as 'eddy' | 'judy' | 'both', note: '' })
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
@@ -47,36 +48,41 @@ export default function CalendarPage() {
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
-  const dayEvents = (date: Date) =>
-    sortEvents(events.filter(e => e.date === format(date, 'yyyy-MM-dd')))
-
-  const handleDayClick = (date: Date) => {
-    setSelectedDate(format(date, 'yyyy-MM-dd'))
+  const dayEvents = (date: Date) => {
+    const ds = format(date, 'yyyy-MM-dd')
+    return sortEvents(events.filter(e => {
+      if (e.date === ds) return true
+      if (e.end_date && e.end_date >= ds && e.date <= ds) return true
+      return false
+    }))
   }
 
   const openAdd = () => {
     setEditItem(null)
-    setForm({ title: '', time: '', person: 'eddy', note: '' })
+    setForm({ title: '', end_date: '', time: '', person: 'eddy', note: '' })
     setShowModal(true)
   }
 
   const openEdit = (event: Event) => {
     setEditItem(event)
-    setForm({ title: event.title, time: event.time || '', person: event.person, note: event.note || '' })
+    setForm({ title: event.title, end_date: event.end_date || '', time: event.time || '', person: event.person, note: event.note || '' })
     setShowModal(true)
   }
 
   const handleSave = async () => {
     if (!form.title.trim() || !selectedDate) return
     setLoading(true)
+    const payload = {
+      title: form.title,
+      time: form.time || null,
+      person: form.person,
+      note: form.note || null,
+      end_date: form.end_date || null,
+    }
     if (editItem) {
-      await supabase.from('events').update({
-        title: form.title, time: form.time || null, person: form.person, note: form.note || null,
-      }).eq('id', editItem.id)
+      await supabase.from('events').update(payload).eq('id', editItem.id)
     } else {
-      await supabase.from('events').insert({
-        title: form.title, date: selectedDate, time: form.time || null, person: form.person, note: form.note || null,
-      })
+      await supabase.from('events').insert({ ...payload, date: selectedDate })
     }
     await fetchEvents()
     setShowModal(false)
@@ -91,8 +97,24 @@ export default function CalendarPage() {
     setEditItem(null)
   }
 
+  const handleFileUpload = async (file: File, eventId: string) => {
+    setUploading(true)
+    const ext = file.name.split('.').pop()
+    const path = `events/${eventId}_${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('archive').upload(path, file, { upsert: true })
+    if (error) { alert('업로드 실패: ' + error.message); setUploading(false); return }
+    const { data } = supabase.storage.from('archive').getPublicUrl(path)
+    await supabase.from('events').update({ file_url: data.publicUrl }).eq('id', eventId)
+    await fetchEvents()
+    setUploading(false)
+  }
+
   const selectedEvents = selectedDate
-    ? sortEvents(events.filter(e => e.date === selectedDate))
+    ? sortEvents(events.filter(e => {
+        if (e.date === selectedDate) return true
+        if (e.end_date && e.end_date >= selectedDate && e.date <= selectedDate) return true
+        return false
+      }))
     : []
 
   return (
@@ -137,7 +159,7 @@ export default function CalendarPage() {
             return (
               <div
                 key={dateStr}
-                onClick={() => handleDayClick(day)}
+                onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                 className={`border-b border-r border-slate-50 min-h-[110px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${
                   isSelected ? 'bg-blue-50' : ''
                 } ${isLastRow ? 'border-b-0' : ''}`}
@@ -153,9 +175,10 @@ export default function CalendarPage() {
                 <div className="space-y-0.5">
                   {de.slice(0, 5).map(event => {
                     const pc = PERSON_COLORS[event.person]
+                    const isMultiDay = !!event.end_date
                     return (
-                      <div key={event.id} className={`text-[10px] px-1 py-0.5 rounded truncate ${pc.bg} ${pc.text}`}>
-                        {event.title}
+                      <div key={event.id} className={`text-[10px] px-1 py-0.5 rounded truncate ${pc.bg} ${pc.text} ${isMultiDay ? 'font-medium' : ''}`}>
+                        {isMultiDay && '↔ '}{event.title}
                       </div>
                     )
                   })}
@@ -204,13 +227,26 @@ export default function CalendarPage() {
                     className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer group ${pc.bg}`}>
                     <div className="flex-1">
                       <p className={`text-sm font-medium ${pc.text}`}>{event.title}</p>
+                      {event.end_date && <p className="text-xs text-slate-500 mt-0.5">~ {event.end_date}</p>}
                       {event.time && <p className="text-xs text-slate-500 mt-0.5">{event.time}</p>}
                       {event.note && <p className="text-xs text-slate-500 mt-0.5">{event.note}</p>}
+                      {event.file_url && (
+                        <a href={event.file_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                          className="text-xs text-blue-500 hover:underline mt-0.5 inline-flex items-center gap-1">
+                          <Paperclip size={10} /> 첨부파일
+                        </a>
+                      )}
                       <span className={`text-[10px] mt-1 inline-block px-1.5 py-0.5 rounded-full ${pc.text} bg-white/60`}>{pc.label}</span>
                     </div>
-                    <button onClick={() => handleDelete(event.id)} className="text-slate-400 hover:text-red-400 transition-colors mt-0.5">
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex flex-col gap-1 items-end">
+                      <label className="opacity-0 group-hover:opacity-100 cursor-pointer text-slate-400 hover:text-blue-400 transition-all">
+                        <input type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, event.id) }} />
+                        <Paperclip size={13} />
+                      </label>
+                      <button onClick={() => handleDelete(event.id)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 transition-all">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 )
               })}
@@ -222,7 +258,7 @@ export default function CalendarPage() {
       {/* Add/edit event modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">{editItem ? '일정 수정' : '일정 추가'}</h3>
               <button onClick={() => { setShowModal(false); setEditItem(null) }}><X size={20} className="text-slate-400" /></button>
@@ -238,12 +274,16 @@ export default function CalendarPage() {
                   autoFocus
                 />
               </div>
-              {editItem && (
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-slate-500 mb-1 block">날짜</label>
+                  <label className="text-xs text-slate-500 mb-1 block">시작일</label>
                   <DatePickerInput value={selectedDate || ''} onChange={v => setSelectedDate(v)} className="w-full" />
                 </div>
-              )}
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">종료일 (선택)</label>
+                  <DatePickerInput value={form.end_date} onChange={v => setForm(f => ({ ...f, end_date: v }))} className="w-full" />
+                </div>
+              </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">시간 (선택)</label>
                 <input
@@ -281,6 +321,22 @@ export default function CalendarPage() {
                   onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
                 />
               </div>
+              {/* File upload - only for existing events */}
+              {editItem && (
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">첨부파일</label>
+                  {editItem.file_url && (
+                    <a href={editItem.file_url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue-500 hover:underline block mb-1">📎 현재 첨부파일</a>
+                  )}
+                  <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+                    <input type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f && editItem) handleFileUpload(f, editItem.id) }} />
+                    <span className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                      {uploading ? '업로드 중...' : '파일 첨부'}
+                    </span>
+                  </label>
+                </div>
+              )}
               {editItem && (
                 <button onClick={() => handleDelete(editItem.id)}
                   className="w-full border border-red-200 text-red-400 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">

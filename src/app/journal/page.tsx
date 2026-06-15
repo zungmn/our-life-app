@@ -81,14 +81,14 @@ export default function JournalPage() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {entries.map(entry => (
             <button key={entry.id} onClick={() => setSelected(entry)}
-              className="card p-4 text-left hover:shadow-md transition-shadow">
+              className="card p-4 text-left hover:shadow-md transition-shadow min-h-[220px] flex flex-col">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-lg">{moodEmoji(entry.mood || 'good')}</span>
                 <p className="text-xs font-medium text-slate-500">
                   {format(new Date(entry.date), 'M/d (EEE)', { locale: ko })}
                 </p>
               </div>
-              <p className="text-sm text-slate-600 line-clamp-4 whitespace-pre-wrap">{entry.content}</p>
+              <p className="text-sm text-slate-600 line-clamp-[8] whitespace-pre-wrap flex-1">{entry.content}</p>
             </button>
           ))}
         </div>

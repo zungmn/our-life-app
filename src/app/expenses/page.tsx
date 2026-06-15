@@ -24,7 +24,7 @@ export default function ExpensesPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState<Transaction | null>(null)
-  const [tab, setTab] = useState<'list' | 'calendar'>('list')
+  const [tab, setTab] = useState<'list' | 'calendar'>('calendar')
   const [listTab, setListTab] = useState<'all' | 'expense' | 'income'>('all')
   const [form, setForm] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -183,7 +183,7 @@ export default function ExpensesPage() {
       {/* View tabs */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex gap-1">
-          {[{ k: 'list', l: '목록' }, { k: 'calendar', l: '캘린더' }].map(t => (
+          {[{ k: 'calendar', l: '캘린더' }, { k: 'list', l: '목록' }].map(t => (
             <button key={t.k} onClick={() => setTab(t.k as typeof tab)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === t.k ? 'bg-blue-500 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
               {t.l}
@@ -245,21 +245,28 @@ export default function ExpensesPage() {
           </div>
           <div className="grid grid-cols-7">
             {Array(startPad).fill(null).map((_, i) => (
-              <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[80px]" />
+              <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[110px]" />
             ))}
             {days.map((day, i) => {
-              const { exp, inc, count } = dayTotals(day)
+              const ds = format(day, 'yyyy-MM-dd')
+              const dayTs = transactions.filter(t => t.date === ds)
               const dow = getDay(day)
               const isLastRow = i >= days.length - 7
               return (
-                <div key={format(day, 'yyyy-MM-dd')}
-                  className={`border-b border-r border-slate-50 min-h-[80px] p-1.5 ${isLastRow ? 'border-b-0' : ''}`}>
+                <div key={ds}
+                  className={`border-b border-r border-slate-50 min-h-[110px] p-1 ${isLastRow ? 'border-b-0' : ''}`}>
                   <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${
                     isToday(day) ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'
                   }`}>{format(day, 'd')}</div>
-                  {exp > 0 && <p className="text-[10px] text-red-500 leading-tight truncate">-{Math.round(exp/10000)}만</p>}
-                  {inc > 0 && <p className="text-[10px] text-green-600 leading-tight truncate">+{Math.round(inc/10000)}만</p>}
-                  {count > 0 && <p className="text-[9px] text-slate-300">{count}건</p>}
+                  <div className="space-y-0.5">
+                    {dayTs.slice(0, 5).map(t => (
+                      <div key={t.id} onDoubleClick={() => openEdit(t)}
+                        className={`text-[11px] px-1 py-0.5 rounded truncate cursor-pointer ${t.type === 'expense' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                        {t.category} {t.type === 'expense' ? '-' : '+'}{t.amount.toLocaleString()}
+                      </div>
+                    ))}
+                    {dayTs.length > 5 && <div className="text-[10px] text-slate-400 px-1">+{dayTs.length - 5}</div>}
+                  </div>
                 </div>
               )
             })}

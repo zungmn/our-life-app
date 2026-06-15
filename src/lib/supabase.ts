@@ -9,9 +9,11 @@ export type Event = {
   id: string
   title: string
   date: string
+  end_date?: string
   time?: string
   person: 'eddy' | 'judy' | 'both'
   note?: string
+  file_url?: string
   created_at: string
 }
 
@@ -77,6 +79,7 @@ export type Project = {
   visibility: 'eddy' | 'both' | 'judy'
   deadline?: string
   notes?: string
+  file_url?: string
   created_at: string
 }
 

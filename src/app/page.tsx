@@ -43,7 +43,7 @@ export default function Home() {
 
   const [todoForm, setTodoForm] = useState({ title: '', deadline: TODAY, shared: false })
   const [projectForm, setProjectForm] = useState({ title: '', deadline: '', shared: false, memo: '' })
-  const [eventForm, setEventForm] = useState({ title: '', date: TODAY, time: '', person: 'both' as 'eddy' | 'judy' | 'both', note: '' })
+  const [eventForm, setEventForm] = useState({ title: '', date: TODAY, end_date: '', time: '', person: 'both' as 'eddy' | 'judy' | 'both', note: '' })
 
   useEffect(() => {
     setViewer((localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy')
@@ -173,24 +173,25 @@ export default function Home() {
   // --- Event handlers ---
   const openAddEvent = (date?: string) => {
     setEditEvent(null)
-    setEventForm({ title: '', date: date || selectedDate || TODAY, time: '', person: 'both', note: '' })
+    setEventForm({ title: '', date: date || selectedDate || TODAY, end_date: '', time: '', person: 'both', note: '' })
     setShowEventModal(true)
   }
   const openEditEvent = (event: CalendarEvent) => {
     setEditEvent(event)
-    setEventForm({ title: event.title, date: event.date, time: event.time || '', person: event.person, note: event.note || '' })
+    setEventForm({ title: event.title, date: event.date, end_date: event.end_date || '', time: event.time || '', person: event.person, note: event.note || '' })
     setShowEventModal(true)
   }
   const handleEventSave = async () => {
     if (!eventForm.title.trim()) return
+    const payload = { title: eventForm.title, date: eventForm.date, end_date: eventForm.end_date || null, time: eventForm.time || null, person: eventForm.person, note: eventForm.note || null }
     if (editEvent) {
-      const { error } = await supabase.from('events').update({ title: eventForm.title, date: eventForm.date, time: eventForm.time || null, person: eventForm.person, note: eventForm.note || null }).eq('id', editEvent.id)
+      const { error } = await supabase.from('events').update(payload).eq('id', editEvent.id)
       if (error) { alert('수정 실패: ' + error.message); return }
     } else {
-      const { error } = await supabase.from('events').insert({ title: eventForm.title, date: eventForm.date, time: eventForm.time || null, person: eventForm.person, note: eventForm.note || null })
+      const { error } = await supabase.from('events').insert(payload)
       if (error) { alert('저장 실패: ' + error.message); return }
     }
-    setEventForm({ title: '', date: selectedDate || TODAY, time: '', person: 'both', note: '' })
+    setEventForm({ title: '', date: selectedDate || TODAY, end_date: '', time: '', person: 'both', note: '' })
     setEditEvent(null)
     setShowEventModal(false)
     await fetchAll()
@@ -204,8 +205,19 @@ export default function Home() {
   const monthEnd = endOfMonth(calDate)
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
   const startPad = getDay(monthStart)
-  const dayEvents = (date: Date) => sortEvents(events.filter(e => e.date === format(date, 'yyyy-MM-dd')))
-  const selectedEvents = selectedDate ? sortEvents(events.filter(e => e.date === selectedDate)) : []
+  const dayEvents = (date: Date) => {
+    const ds = format(date, 'yyyy-MM-dd')
+    return sortEvents(events.filter(e => {
+      if (e.date === ds) return true
+      if (e.end_date && e.end_date >= ds && e.date <= ds) return true
+      return false
+    }))
+  }
+  const selectedEvents = selectedDate ? sortEvents(events.filter(e => {
+    if (e.date === selectedDate) return true
+    if (e.end_date && e.end_date >= selectedDate && e.date <= selectedDate) return true
+    return false
+  })) : []
 
   return (
     <div className="p-6 md:p-10 max-w-full mx-auto">
@@ -474,14 +486,18 @@ export default function Home() {
                 onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))} autoFocus />
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-slate-500 mb-1 block">날짜</label>
+                  <label className="text-xs text-slate-500 mb-1 block">시작일</label>
                   <DatePickerInput value={eventForm.date} onChange={v => setEventForm(f => ({ ...f, date: v }))} className="w-full" />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-500 mb-1 block">시간 (선택)</label>
-                  <input type="time" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-slate-400"
-                    value={eventForm.time} onChange={e => setEventForm(f => ({ ...f, time: e.target.value }))} />
+                  <label className="text-xs text-slate-500 mb-1 block">종료일 (선택)</label>
+                  <DatePickerInput value={eventForm.end_date} onChange={v => setEventForm(f => ({ ...f, end_date: v }))} className="w-full" />
                 </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">시간 (선택)</label>
+                <input type="time" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-slate-400"
+                  value={eventForm.time} onChange={e => setEventForm(f => ({ ...f, time: e.target.value }))} />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">누구의 일정?</label>
