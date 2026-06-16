@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, Project, ProjectMemo, Todo } from '@/lib/supabase'
-import { format, differenceInDays, parseISO } from 'date-fns'
+import { format, differenceInCalendarDays, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, X, Trash2, Check, ChevronDown, MessageSquare, ListTodo, Paperclip } from 'lucide-react'
 import DatePickerInput from '@/components/DatePickerInput'
@@ -69,7 +69,7 @@ export default function ProjectsPage() {
   }
 
   const daysLeft = (deadline: string) => {
-    const d = differenceInDays(parseISO(deadline), new Date())
+    const d = differenceInCalendarDays(parseISO(deadline), new Date())
     if (d < 0) return { label: `${Math.abs(d)}일 초과`, color: 'text-red-500' }
     if (d === 0) return { label: '오늘 마감', color: 'text-red-500' }
     return { label: `D-${d}`, color: d <= 7 ? 'text-orange-500' : 'text-slate-400' }
@@ -161,12 +161,12 @@ export default function ProjectsPage() {
     <div className="p-6 md:p-10 max-w-full">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">🗂️ Project</h2>
-          <p className="text-xs text-slate-400 mt-0.5">{viewer === 'eddy' ? 'Eddy' : 'Judy'} 화면</p>
+          <h2 className="text-3xl font-bold text-slate-800">🗂️ Project</h2>
+          <p className="text-base text-slate-400 mt-0.5">{viewer === 'eddy' ? 'Eddy' : 'Judy'} 화면</p>
         </div>
         <button onClick={() => setShowModal(true)}
-          className="flex items-center gap-1 bg-purple-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-600 transition-colors">
-          <Plus size={16} /> 추가
+          className="flex items-center gap-1 bg-purple-500 text-white px-5 py-2.5 rounded-lg text-lg hover:bg-purple-600 transition-colors">
+          <Plus size={22} /> 추가
         </button>
       </div>
 
@@ -177,30 +177,30 @@ export default function ProjectsPage() {
           return (
             <div key={status}>
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-2 h-2 rounded-full" style={{ background: info.dot }} />
-                <h3 className="text-sm font-semibold text-slate-600">{info.label}</h3>
-                <span className="text-xs text-slate-400">({items.length})</span>
+                <div className="w-3 h-3 rounded-full" style={{ background: info.dot }} />
+                <h3 className="text-lg font-semibold text-slate-600">{info.label}</h3>
+                <span className="text-base text-slate-400">({items.length})</span>
               </div>
               {items.length === 0 ? (
-                <p className="text-xs text-slate-300 pl-4">없음</p>
+                <p className="text-base text-slate-300 pl-4">없음</p>
               ) : (
                 <div className="space-y-2">
                   {items.map(project => {
                     const dl = project.deadline ? daysLeft(project.deadline) : null
                     return (
                       <button key={project.id} onClick={() => openDetail(project)}
-                        className="card p-3 w-full text-left hover:shadow-md transition-shadow">
+                        className="card p-4 w-full text-left hover:shadow-md transition-shadow">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-800 text-sm">{project.title}</p>
+                            <p className="font-medium text-slate-800 text-xl">{project.title}</p>
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              {dl && <p className={`text-[10px] ${dl.color}`}>{dl.label}</p>}
-                              <span className="text-[10px] text-slate-400">
+                              {dl && <p className={`text-base ${dl.color}`}>{dl.label}</p>}
+                              <span className="text-base text-slate-400">
                                 {project.visibility === 'both' ? '함께' : project.visibility === 'eddy' ? 'Eddy' : 'Judy'}
                               </span>
                             </div>
                           </div>
-                          <ChevronDown size={14} className="text-slate-300 flex-shrink-0 -rotate-90" />
+                          <ChevronDown size={20} className="text-slate-300 flex-shrink-0 -rotate-90" />
                         </div>
                       </button>
                     )

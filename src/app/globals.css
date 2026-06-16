@@ -17,6 +17,11 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
+/* iOS Safari auto-zooms on focus if input font-size < 16px. Force 16px to prevent it. */
+input, textarea, select {
+  font-size: 16px !important;
+}
+
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 2px; }

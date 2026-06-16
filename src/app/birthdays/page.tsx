@@ -139,12 +139,12 @@ export default function BirthdaysPage() {
     <div className="p-6 md:p-10 max-w-full">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">🎁 생일선물</h2>
-          <p className="text-xs text-slate-400 mt-0.5">받은 선물, 준 선물 기록</p>
+          <h2 className="text-3xl font-bold text-slate-800">🎁 생일선물</h2>
+          <p className="text-base text-slate-400 mt-0.5">받은 선물, 준 선물 기록</p>
         </div>
         <button onClick={() => setShowModal(true)}
-          className="flex items-center gap-1 bg-rose-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-rose-600 transition-colors">
-          <Plus size={16} /> 추가
+          className="flex items-center gap-1 bg-rose-500 text-white px-5 py-2.5 rounded-lg text-lg hover:bg-rose-600 transition-colors">
+          <Plus size={22} /> 추가
         </button>
       </div>
 
@@ -152,7 +152,7 @@ export default function BirthdaysPage() {
       <div className="flex gap-1 mb-4">
         {[{ k: 'list', l: '목록' }, { k: 'calendar', l: '캘린더' }].map(t => (
           <button key={t.k} onClick={() => setViewTab(t.k as typeof viewTab)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${viewTab === t.k ? 'bg-rose-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
+            className={`px-4 py-2 rounded-lg text-base font-medium transition-colors ${viewTab === t.k ? 'bg-rose-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
             {t.l}
           </button>
         ))}
@@ -162,13 +162,13 @@ export default function BirthdaysPage() {
       {viewTab === 'calendar' && (
         <div className="card overflow-hidden mb-4">
           <div className="flex items-center justify-between p-3 border-b border-slate-100">
-            <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft size={16} /></button>
-            <span className="font-semibold text-slate-800">{calMonth.getFullYear()}년 {calMonth.getMonth() + 1}월</span>
-            <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronRight size={16} /></button>
+            <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft size={24} /></button>
+            <span className="font-semibold text-slate-800 text-xl">{calMonth.getFullYear()}년 {calMonth.getMonth() + 1}월</span>
+            <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronRight size={24} /></button>
           </div>
           <div className="grid grid-cols-7 border-b border-slate-100">
             {WEEKDAYS.map((d, i) => (
-              <div key={d} className={`text-center text-xs font-medium py-2 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
+              <div key={d} className={`text-center text-base font-medium py-2 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7">
@@ -180,7 +180,7 @@ export default function BirthdaysPage() {
               const pad = firstDay.getDay()
               const daysInMonth = lastDay.getDate()
               const cells = []
-              for (let i = 0; i < pad; i++) cells.push(<div key={`p${i}`} className="min-h-[70px] border-b border-r border-slate-50" />)
+              for (let i = 0; i < pad; i++) cells.push(<div key={`p${i}`} className="min-h-[100px] border-b border-r border-slate-50" />)
               for (let d = 1; d <= daysInMonth; d++) {
                 const mm = String(m).padStart(2, '0')
                 const dd = String(d).padStart(2, '0')
@@ -189,11 +189,11 @@ export default function BirthdaysPage() {
                 const dow = new Date(year, m - 1, d).getDay()
                 const isLast = d + pad > daysInMonth - 7 + pad
                 cells.push(
-                  <div key={d} className={`min-h-[70px] p-1 border-b border-r border-slate-50 ${isLast ? 'border-b-0' : ''}`}>
-                    <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-0.5 ${dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{d}</div>
+                  <div key={d} className={`min-h-[100px] p-1 border-b border-r border-slate-50 ${isLast ? 'border-b-0' : ''}`}>
+                    <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{d}</div>
                     {bds.map(b => (
                       <button key={b.id} onClick={() => setSelected(b)} className="w-full text-left">
-                        <div className="text-[10px] bg-rose-100 text-rose-600 px-1 py-0.5 rounded truncate mb-0.5">🎂 {b.name}</div>
+                        <div className="text-sm bg-rose-100 text-rose-600 px-1 py-0.5 rounded truncate mb-0.5">🎂 {b.name}</div>
                       </button>
                     ))}
                   </div>
@@ -209,12 +209,12 @@ export default function BirthdaysPage() {
       {viewTab === 'list' && <>
       <div className="flex gap-1.5 flex-wrap mb-4">
         <button onClick={() => setFilterMonth(0)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterMonth === 0 ? 'bg-rose-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
+          className={`px-4 py-2 rounded-lg text-base font-medium transition-colors ${filterMonth === 0 ? 'bg-rose-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
           다가오는순
         </button>
         {MONTHS.map((m, i) => (
           <button key={m} onClick={() => setFilterMonth(i + 1)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-base font-medium transition-colors ${
               filterMonth === i + 1 ? 'bg-rose-500 text-white' : i + 1 === THIS_MONTH ? 'bg-rose-50 text-rose-400' : 'bg-white text-slate-500 hover:bg-slate-100'
             }`}>
             {m}
@@ -225,7 +225,7 @@ export default function BirthdaysPage() {
       {byMonth.length === 0 ? (
         <div className="text-center py-12 text-slate-400">
           <Gift size={48} className="mx-auto mb-3 text-slate-200" />
-          <p className="text-sm">생일을 추가해보세요</p>
+          <p className="text-lg">생일을 추가해보세요</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -237,23 +237,23 @@ export default function BirthdaysPage() {
               <button key={bd.id} onClick={() => setSelected(bd)}
                 className="card p-4 w-full text-left hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-rose-50 flex flex-col items-center justify-center flex-shrink-0">
-                    <p className="text-[10px] text-rose-400 font-medium">{m}월</p>
-                    <p className="text-lg font-bold text-rose-500">{d}</p>
+                  <div className="w-16 h-16 rounded-full bg-rose-50 flex flex-col items-center justify-center flex-shrink-0">
+                    <p className="text-sm text-rose-400 font-medium">{m}월</p>
+                    <p className="text-2xl font-bold text-rose-500">{d}</p>
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-slate-800">{bd.name}</p>
-                      {bd.relation && <span className="text-xs text-slate-400">{bd.relation}</span>}
+                      <p className="font-semibold text-slate-800 text-xl">{bd.name}</p>
+                      {bd.relation && <span className="text-base text-slate-400">{bd.relation}</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
-                      <p className={`text-xs font-medium ${nb.days <= 30 ? 'text-rose-500' : 'text-slate-400'}`}>
+                      <p className={`text-base font-medium ${nb.days <= 30 ? 'text-rose-500' : 'text-slate-400'}`}>
                         {nb.days === 0 ? '🎂 오늘!' : nb.days === 1 ? '내일!' : `D-${nb.days}`}
                       </p>
-                      <p className="text-xs text-slate-400">{bdGifts.length}개 기록</p>
+                      <p className="text-base text-slate-400">{bdGifts.length}개 기록</p>
                     </div>
                   </div>
-                  <ChevronDown size={16} className="text-slate-300 -rotate-90" />
+                  <ChevronDown size={24} className="text-slate-300 -rotate-90" />
                 </div>
               </button>
             )
@@ -269,43 +269,43 @@ export default function BirthdaysPage() {
             <div className="p-5 border-b border-slate-100">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-bold text-lg text-slate-800">{selected.name}</h3>
-                  <p className="text-sm text-slate-400">
+                  <h3 className="font-bold text-2xl text-slate-800">{selected.name}</h3>
+                  <p className="text-lg text-slate-400">
                     {selected.birthday.replace('-', '월 ')}일{selected.relation ? ` · ${selected.relation}` : ''}
                     {selected.lunar_birthday && <span className="ml-1 text-slate-300">(음력 {selected.lunar_birthday.replace('-', '월 ')}일)</span>}
                   </p>
-                  <p className={`text-xs font-medium mt-1 ${nextBirthday(selected.birthday).days <= 30 ? 'text-rose-500' : 'text-slate-400'}`}>
+                  <p className={`text-base font-medium mt-1 ${nextBirthday(selected.birthday).days <= 30 ? 'text-rose-500' : 'text-slate-400'}`}>
                     {nextBirthday(selected.birthday).days === 0 ? '🎂 오늘 생일!' : `D-${nextBirthday(selected.birthday).days}`}
                   </p>
                 </div>
-                <button onClick={() => setSelected(null)}><X size={20} className="text-slate-400" /></button>
+                <button onClick={() => setSelected(null)}><X size={28} className="text-slate-400" /></button>
               </div>
             </div>
 
             <div className="p-5">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold text-slate-700">선물 기록</h4>
+                <h4 className="text-lg font-semibold text-slate-700">선물 기록</h4>
                 <button onClick={() => setShowGiftModal(true)}
-                  className="text-xs bg-rose-500 text-white px-2 py-1 rounded-lg hover:bg-rose-600 transition-colors">
+                  className="text-base bg-rose-500 text-white px-3 py-1.5 rounded-lg hover:bg-rose-600 transition-colors">
                   + 추가
                 </button>
               </div>
 
               {selectedGifts.length === 0 ? (
-                <p className="text-xs text-slate-400">기록이 없어요</p>
+                <p className="text-base text-slate-400">기록이 없어요</p>
               ) : (
                 <div className="space-y-2">
                   {selectedGifts.map(g => (
                     <div key={g.id} className="flex items-center gap-2 group">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                      <span className={`text-sm px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
                         g.direction === 'received' ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'
                       }`}>
                         {g.direction === 'received' ? '받음' : '줌'}
                       </span>
-                      <span className="text-xs text-slate-400 flex-shrink-0">{g.year}년</span>
-                      <p className="text-sm text-slate-700 flex-1">{g.gift}</p>
+                      <span className="text-base text-slate-400 flex-shrink-0">{g.year}년</span>
+                      <p className="text-lg text-slate-700 flex-1">{g.gift}</p>
                       <button onClick={() => handleDeleteGift(g.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all">
-                        <Trash2 size={12} />
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   ))}
@@ -320,18 +320,18 @@ export default function BirthdaysPage() {
                   <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${selected.show_in_calendar ? 'translate-x-4' : 'translate-x-0'}`} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-700">캘린더에 표시</p>
-                  <p className="text-xs text-slate-400">{selected.show_in_calendar ? '홈/캘린더에 생일 일정으로 표시됨' : '캘린더에 표시되지 않음'}</p>
+                  <p className="text-lg font-medium text-slate-700">캘린더에 표시</p>
+                  <p className="text-base text-slate-400">{selected.show_in_calendar ? '홈/캘린더에 생일 일정으로 표시됨' : '캘린더에 표시되지 않음'}</p>
                 </div>
               </label>
               <div className="flex items-center gap-4">
                 <button onClick={() => openEdit(selected)}
-                  className="flex items-center gap-1 text-blue-500 text-sm hover:text-blue-700 transition-colors">
+                  className="flex items-center gap-1 text-blue-500 text-lg hover:text-blue-700 transition-colors">
                   ✏️ 수정
                 </button>
                 <button onClick={() => handleDelete(selected.id)}
-                  className="flex items-center gap-2 text-red-400 text-sm hover:text-red-600 transition-colors">
-                  <Trash2 size={14} /> 삭제
+                  className="flex items-center gap-2 text-red-400 text-lg hover:text-red-600 transition-colors">
+                  <Trash2 size={20} /> 삭제
                 </button>
               </div>
             </div>
@@ -344,7 +344,7 @@ export default function BirthdaysPage() {
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800">선물 기록 추가</h3>
+              <h3 className="font-semibold text-slate-800 text-xl">선물 기록 추가</h3>
               <button onClick={() => setShowGiftModal(false)}><X size={20} className="text-slate-400" /></button>
             </div>
             <div className="space-y-3">
@@ -383,7 +383,7 @@ export default function BirthdaysPage() {
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800">{editItem ? '생일 수정' : '생일 추가'}</h3>
+              <h3 className="font-semibold text-slate-800 text-xl">{editItem ? '생일 수정' : '생일 추가'}</h3>
               <button onClick={() => { setShowModal(false); setEditItem(null) }}><X size={20} className="text-slate-400" /></button>
             </div>
             <div className="space-y-3">

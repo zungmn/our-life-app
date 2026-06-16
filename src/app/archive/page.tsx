@@ -100,9 +100,9 @@ export default function ArchivePage() {
             <button key={item.id} onClick={() => setSelected(item)} className="card p-3 text-left hover:shadow-md transition-shadow">
               {item.file_url && isImage(item.file_url) ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.file_url} alt={item.title} className="w-full h-32 object-cover rounded-lg mb-2" />
+                <img src={item.file_url} alt={item.title} className="w-full aspect-[5/7] object-cover rounded-lg mb-2" />
               ) : (
-                <div className="w-full h-20 bg-teal-50 rounded-lg flex items-center justify-center mb-2">
+                <div className="w-full aspect-[5/7] bg-teal-50 rounded-lg flex items-center justify-center mb-2">
                   {item.file_url ? <Paperclip size={24} className="text-teal-300" /> : <FolderOpen size={24} className="text-teal-300" />}
                 </div>
               )}

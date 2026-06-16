@@ -3,9 +3,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, Event as CalendarEvent, Todo, Project } from '@/lib/supabase'
 import { PERSON_COLORS } from '@/lib/constants'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, differenceInDays, parseISO } from 'date-fns'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, differenceInCalendarDays, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Plus, X, Trash2, Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, X, Trash2, Check, ChevronLeft, ChevronRight, Paperclip } from 'lucide-react'
 import Link from 'next/link'
 import DatePickerInput from '@/components/DatePickerInput'
 
@@ -23,6 +23,16 @@ function sortEvents(evs: CalendarEvent[]) {
   })
 }
 
+function formatKoreanTime(time?: string) {
+  if (!time) return ''
+  const [hStr, mStr] = time.split(':')
+  const h = parseInt(hStr, 10)
+  const m = parseInt(mStr, 10)
+  const period = h < 12 ? '오전' : '오후'
+  const hourDisplay = h < 12 ? h : (h === 12 ? 12 : h - 12)
+  return `${period} ${hourDisplay}시 ${m}분`
+}
+
 export default function Home() {
   const [viewer, setViewer] = useState<'eddy' | 'judy'>('eddy')
   const [todos, setTodos] = useState<Todo[]>([])
@@ -30,6 +40,7 @@ export default function Home() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [calDate, setCalDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [uploadingEventFile, setUploadingEventFile] = useState(false)
 
   // Add modals
   const [showTodoModal, setShowTodoModal] = useState(false)
@@ -78,10 +89,9 @@ export default function Home() {
   const visibleProjects = projects.filter(p => isVisible(p.visibility) && p.status === 'in_progress')
 
   const daysLeft = (deadline: string) => {
-    const d = differenceInDays(parseISO(deadline), new Date())
+    const d = differenceInCalendarDays(parseISO(deadline), new Date())
     if (d < 0) return { label: `${Math.abs(d)}일 초과`, color: 'text-red-500' }
     if (d === 0) return { label: '오늘 마감', color: 'text-red-500' }
-    if (d === 1) return { label: '내일 마감', color: 'text-orange-500' }
     return { label: `D-${d}`, color: d <= 3 ? 'text-orange-500' : 'text-slate-400' }
   }
 
@@ -89,7 +99,7 @@ export default function Home() {
   const homeTodos = visibleTodos.filter(t => {
     if (t.completed) return false
     if (!t.deadline) return true
-    return differenceInDays(parseISO(t.deadline), new Date()) <= 6
+    return differenceInCalendarDays(parseISO(t.deadline), new Date()) <= 6
   })
 
   const ownerBadge = (owner: string) => ({
@@ -200,6 +210,17 @@ export default function Home() {
     await supabase.from('events').delete().eq('id', id)
     await fetchAll()
   }
+  const handleEventFileUpload = async (file: File, eventId: string) => {
+    setUploadingEventFile(true)
+    const ext = file.name.split('.').pop()
+    const path = `events/${eventId}_${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('archive').upload(path, file, { upsert: true })
+    if (error) { alert('업로드 실패: ' + error.message); setUploadingEventFile(false); return }
+    const { data } = supabase.storage.from('archive').getPublicUrl(path)
+    await supabase.from('events').update({ file_url: data.publicUrl }).eq('id', eventId)
+    await fetchAll()
+    setUploadingEventFile(false)
+  }
 
   const monthStart = startOfMonth(calDate)
   const monthEnd = endOfMonth(calDate)
@@ -218,6 +239,19 @@ export default function Home() {
     if (e.end_date && e.end_date >= selectedDate && e.date <= selectedDate) return true
     return false
   })) : []
+
+  const renderCellEvent = (event: CalendarEvent, dateStr: string) => {
+    const pc = PERSON_COLORS[event.person]
+    const isStart = event.date === dateStr
+    const isEnd = (event.end_date || event.date) === dateStr
+    const label = `${event.title}${event.time ? ' ' + formatKoreanTime(event.time) : ''}`
+    return (
+      <div key={event.id}
+        className={`text-[20px] px-1 py-0.5 truncate ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1.5'} ${isEnd ? 'rounded-r' : '-mr-1.5'}`}>
+        {isStart ? label : ' '}
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 md:p-10 max-w-full mx-auto">
@@ -241,34 +275,34 @@ export default function Home() {
 
       <div className="grid md:grid-cols-2 gap-4 mb-4">
         {/* Todo */}
-        <div className="card p-4">
+        <div className="card p-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-800">📋 Todo</h3>
+            <h3 className="font-semibold text-slate-800 text-2xl">📋 Todo</h3>
             <div className="flex items-center gap-2">
-              <Link href="/todos" className="text-xs text-blue-500 hover:underline">전체보기</Link>
+              <Link href="/todos" className="text-lg text-blue-500 hover:underline">전체보기</Link>
               <button onClick={openAddTodo}
-                className="flex items-center gap-1 bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors">
-                <Plus size={13} /> 추가
+                className="flex items-center gap-1 bg-blue-500 text-white text-lg px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                <Plus size={20} /> 추가
               </button>
             </div>
           </div>
           <div className="space-y-1">
-            {homeTodos.length === 0 && <p className="text-sm text-slate-400 text-center py-3">할 일이 없어요 🎉</p>}
+            {homeTodos.length === 0 && <p className="text-lg text-slate-400 text-center py-3">할 일이 없어요 🎉</p>}
             {homeTodos.map(todo => {
               const dl = todo.deadline ? daysLeft(todo.deadline) : null
               const badge = ownerBadge(todo.owner || viewer)
               return (
                 <div key={todo.id} onDoubleClick={() => openEditTodo(todo)}
-                  className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg group cursor-pointer">
-                  <button onClick={() => handleTodoToggle(todo)} className="w-5 h-5 rounded-full border-2 border-slate-300 flex-shrink-0 hover:bg-slate-200 transition-colors" />
+                  className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg group cursor-pointer">
+                  <button onClick={() => handleTodoToggle(todo)} className="w-[30px] h-[30px] rounded-full border-2 border-slate-300 flex-shrink-0 hover:bg-slate-200 transition-colors" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-sm text-slate-800 truncate">{todo.title}</p>
-                      {todo.visibility === 'both' && <span className={`text-[9px] px-1 rounded font-bold flex-shrink-0 ${badge.cls}`}>{badge.label}</span>}
+                      <p className="text-[21px] text-slate-800 truncate">{todo.title}</p>
+                      {todo.visibility === 'both' && <span className={`text-[13.5px] px-1 rounded font-bold flex-shrink-0 ${badge.cls}`}>{badge.label}</span>}
                     </div>
-                    {dl && <p className={`text-[10px] font-medium ${dl.color}`}>{dl.label}{todo.deadline && ` · ${format(parseISO(todo.deadline), 'M/d')}`}</p>}
+                    {dl && <p className={`text-[15px] font-medium ${dl.color}`}>{dl.label}{todo.deadline && ` · ${format(parseISO(todo.deadline), 'M/d')}`}</p>}
                   </div>
-                  <button onClick={() => handleTodoDelete(todo.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all"><Trash2 size={12} /></button>
+                  <button onClick={() => handleTodoDelete(todo.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all"><Trash2 size={18} /></button>
                 </div>
               )
             })}
@@ -276,34 +310,34 @@ export default function Home() {
         </div>
 
         {/* Project */}
-        <div className="card p-4">
+        <div className="card p-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-800">🗂️ Project</h3>
+            <h3 className="font-semibold text-slate-800 text-2xl">🗂️ Project</h3>
             <div className="flex items-center gap-2">
-              <Link href="/projects" className="text-xs text-blue-500 hover:underline">전체보기</Link>
+              <Link href="/projects" className="text-lg text-blue-500 hover:underline">전체보기</Link>
               <button onClick={openAddProject}
-                className="flex items-center gap-1 bg-purple-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-purple-600 transition-colors">
-                <Plus size={13} /> 추가
+                className="flex items-center gap-1 bg-purple-500 text-white text-lg px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors">
+                <Plus size={20} /> 추가
               </button>
             </div>
           </div>
           <div className="space-y-2">
-            {visibleProjects.length === 0 && <p className="text-xs text-slate-400 py-1">진행 중인 프로젝트가 없어요</p>}
+            {visibleProjects.length === 0 && <p className="text-lg text-slate-400 py-1">진행 중인 프로젝트가 없어요</p>}
             {visibleProjects.map(project => {
               const dl = project.deadline ? daysLeft(project.deadline) : null
               return (
                 <div key={project.id} onDoubleClick={() => openEditProject(project)}
-                  className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg group cursor-pointer">
-                  <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                  className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg group cursor-pointer">
+                  <div className="w-3 h-3 rounded-full bg-blue-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-800 truncate">{project.title}</p>
-                    {dl && <p className={`text-[10px] ${dl.color}`}>{dl.label}</p>}
+                    <p className="text-[21px] text-slate-800 truncate">{project.title}</p>
+                    {dl && <p className={`text-[15px] ${dl.color}`}>{dl.label}</p>}
                   </div>
                   <button onClick={() => handleProjectComplete(project)}
-                    className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full hover:bg-green-200 transition-all flex-shrink-0">
-                    <Check size={10} /> 완료
+                    className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[15px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full hover:bg-green-200 transition-all flex-shrink-0">
+                    <Check size={15} /> 완료
                   </button>
-                  <button onClick={() => handleProjectDelete(project.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all"><Trash2 size={12} /></button>
+                  <button onClick={() => handleProjectDelete(project.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all"><Trash2 size={18} /></button>
                 </div>
               )
             })}
@@ -313,25 +347,25 @@ export default function Home() {
 
       {/* Calendar */}
       <div className="card overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-slate-100">
-          <button onClick={() => setCalDate(subMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg"><ChevronLeft size={18} className="text-slate-600" /></button>
-          <h3 className="font-semibold text-slate-800">{format(calDate, 'yyyy년 M월')}</h3>
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <button onClick={() => setCalDate(subMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg"><ChevronLeft size={36} className="text-slate-600" /></button>
+          <h3 className="font-semibold text-slate-800 text-[32px]">{format(calDate, 'yyyy년 M월')}</h3>
           <div className="flex items-center gap-2">
-            <button onClick={() => openAddEvent()} className="flex items-center gap-1 bg-slate-700 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors">
-              <Plus size={13} /> 추가
+            <button onClick={() => openAddEvent()} className="flex items-center gap-1 bg-slate-700 text-white text-[24px] px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors">
+              <Plus size={26} /> 추가
             </button>
-            <button onClick={() => setCalDate(addMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg"><ChevronRight size={18} className="text-slate-600" /></button>
+            <button onClick={() => setCalDate(addMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg"><ChevronRight size={36} className="text-slate-600" /></button>
           </div>
         </div>
 
         <div className="grid grid-cols-7 border-b border-slate-100">
           {WEEKDAYS.map((d, i) => (
-            <div key={d} className={`text-center text-xs font-medium py-2 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
+            <div key={d} className={`text-center text-[24px] font-medium py-2 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
           ))}
         </div>
 
         <div className="grid grid-cols-7">
-          {Array(startPad).fill(null).map((_, i) => <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[80px]" />)}
+          {Array(startPad).fill(null).map((_, i) => <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[160px]" />)}
           {days.map((day, i) => {
             const dateStr = format(day, 'yyyy-MM-dd')
             const de = dayEvents(day)
@@ -341,16 +375,13 @@ export default function Home() {
             const isLastRow = i >= days.length - 7
             return (
               <div key={dateStr} onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                className={`border-b border-r border-slate-50 min-h-[80px] p-1.5 cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${isLastRow ? 'border-b-0' : ''}`}>
-                <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${todayMark ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>
+                className={`border-b border-r border-slate-50 min-h-[160px] p-1.5 cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${isLastRow ? 'border-b-0' : ''}`}>
+                <div className={`text-[24px] font-medium w-12 h-12 flex items-center justify-center rounded-full mb-1 ${todayMark ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>
                   {format(day, 'd')}
                 </div>
                 <div className="space-y-0.5">
-                  {de.slice(0, 5).map(event => {
-                    const pc = PERSON_COLORS[event.person]
-                    return <div key={event.id} className={`text-[10px] px-1 py-0.5 rounded truncate ${pc.bg} ${pc.text}`}>{event.title}</div>
-                  })}
-                  {de.length > 5 && <div className="text-[10px] text-slate-400 px-1">+{de.length - 5}</div>}
+                  {de.slice(0, 5).map(event => renderCellEvent(event, dateStr))}
+                  {de.length > 5 && <div className="text-[20px] text-slate-400 px-1">+{de.length - 5}</div>}
                 </div>
               </div>
             )
@@ -358,27 +389,40 @@ export default function Home() {
         </div>
 
         {selectedDate && (
-          <div className="border-t border-slate-100 p-4">
+          <div className="border-t border-slate-100 p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-slate-700">{format(new Date(selectedDate), 'M월 d일 (EEEE)', { locale: ko })}</p>
+              <p className="text-[28px] font-medium text-slate-700">{format(new Date(selectedDate), 'M월 d일 (EEEE)', { locale: ko })}</p>
               <button onClick={() => openAddEvent(selectedDate)}
-                className="flex items-center gap-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded-lg transition-colors">
-                <Plus size={12} /> 이날 일정 추가
+                className="flex items-center gap-1 text-[20px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded-lg transition-colors">
+                <Plus size={20} /> 이날 일정 추가
               </button>
             </div>
-            {selectedEvents.length === 0 ? <p className="text-xs text-slate-400">일정이 없어요</p> : (
+            {selectedEvents.length === 0 ? <p className="text-[20px] text-slate-400">일정이 없어요</p> : (
               <div className="space-y-1">
                 {selectedEvents.map(event => {
                   const pc = PERSON_COLORS[event.person]
                   return (
                     <div key={event.id} onDoubleClick={() => openEditEvent(event)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${pc.bg} group cursor-pointer`}>
-                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: pc.dot }} />
-                      <p className={`text-sm flex-1 ${pc.text}`}>{event.title}</p>
-                      {event.time && <p className="text-xs text-slate-400">{event.time}</p>}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg ${pc.bg} group cursor-pointer`}>
+                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc.dot }} />
+                      <div className="flex-1">
+                        <p className={`text-[24px] ${pc.text}`}>{event.title}</p>
+                        {event.end_date && <p className="text-[18px] text-slate-500">~ {event.end_date}</p>}
+                        {event.file_url && (
+                          <a href={event.file_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                            className="text-[18px] text-blue-500 hover:underline inline-flex items-center gap-1">
+                            <Paperclip size={14} /> 첨부파일
+                          </a>
+                        )}
+                      </div>
+                      {event.time && <p className="text-[20px] text-slate-400">{formatKoreanTime(event.time)}</p>}
+                      <label className="opacity-0 group-hover:opacity-100 cursor-pointer text-slate-400 hover:text-blue-400 transition-all" onClick={e => e.stopPropagation()}>
+                        <input type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleEventFileUpload(f, event.id) }} />
+                        <Paperclip size={20} />
+                      </label>
                       <button onClick={(e) => { e.stopPropagation(); handleEventDelete(event.id) }}
                         className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 transition-all">
-                        <Trash2 size={12} />
+                        <Trash2 size={20} />
                       </button>
                     </div>
                   )
@@ -388,11 +432,11 @@ export default function Home() {
           </div>
         )}
 
-        <div className="flex gap-4 px-4 py-2 border-t border-slate-50">
+        <div className="flex gap-4 px-6 py-3 border-t border-slate-50">
           {Object.entries(PERSON_COLORS).map(([key, pc]) => (
             <div key={key} className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full" style={{ background: pc.dot }} />
-              <span className="text-xs text-slate-400">{pc.label}</span>
+              <div className="w-3 h-3 rounded-full" style={{ background: pc.dot }} />
+              <span className="text-[20px] text-slate-400">{pc.label}</span>
             </div>
           ))}
         </div>
@@ -475,7 +519,7 @@ export default function Home() {
       {/* 일정 모달 (추가 / 수정) */}
       {showEventModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">{editEvent ? '일정 수정' : '일정 추가'}</h3>
               <button onClick={() => setShowEventModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -518,6 +562,21 @@ export default function Home() {
                   rows={2} placeholder="메모..."
                   value={eventForm.note} onChange={e => setEventForm(f => ({ ...f, note: e.target.value }))} />
               </div>
+              {editEvent && (
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">첨부파일</label>
+                  {editEvent.file_url && (
+                    <a href={editEvent.file_url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue-500 hover:underline block mb-1">📎 현재 첨부파일</a>
+                  )}
+                  <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+                    <input type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f && editEvent) handleEventFileUpload(f, editEvent.id) }} />
+                    <span className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                      {uploadingEventFile ? '업로드 중...' : '파일 첨부'}
+                    </span>
+                  </label>
+                </div>
+              )}
               {editEvent && (
                 <button onClick={() => { handleEventDelete(editEvent.id); setShowEventModal(false) }}
                   className="w-full border border-red-200 text-red-400 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">
