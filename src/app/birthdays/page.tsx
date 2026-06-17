@@ -140,7 +140,7 @@ export default function BirthdaysPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">🎁 생일선물</h2>
-          <p className="text-base text-slate-400 mt-0.5">받은 선물, 준 선물 기록</p>
+          <p className="text-base font-semibold text-slate-500 mt-0.5">받은 선물, 준 선물 기록</p>
         </div>
         <button onClick={() => setShowModal(true)}
           className="flex items-center gap-1 bg-rose-500 text-white px-4 py-2 rounded-lg text-[0.9rem] hover:bg-rose-600 transition-colors">

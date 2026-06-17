@@ -12,7 +12,7 @@ export default function JournalPage() {
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState<JournalEntry | null>(null)
   const [selected, setSelected] = useState<JournalEntry | null>(null)
-  const [form, setForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), content: '', mood: 'good', exercises: '' })
+  const [form, setForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), title: '', content: '', mood: 'good', exercises: '' })
   const [loading, setLoading] = useState(false)
   const EXERCISES = [
     { value: '달리기', icon: '🏃' },
@@ -38,7 +38,7 @@ export default function JournalPage() {
 
   const openEdit = (entry: JournalEntry) => {
     setSelected(null)
-    setForm({ date: entry.date, content: entry.content, mood: entry.mood || 'good', exercises: entry.exercise || '' })
+    setForm({ date: entry.date, title: entry.title || '', content: entry.content, mood: entry.mood || 'good', exercises: entry.exercise || '' })
     setEditItem(entry)
     setShowModal(true)
   }
@@ -46,7 +46,7 @@ export default function JournalPage() {
   const handleSave = async () => {
     if (!form.content.trim()) return
     setLoading(true)
-    const payload = { date: form.date, content: form.content, mood: form.mood, exercise: form.exercises || null }
+    const payload = { date: form.date, title: form.title || null, content: form.content, mood: form.mood, exercise: form.exercises || null }
     if (editItem) {
       const { error } = await supabase.from('journal_entries').update(payload).eq('id', editItem.id)
       if (error) { alert('수정 실패: ' + error.message); setLoading(false); return }
@@ -57,7 +57,7 @@ export default function JournalPage() {
     await fetchEntries()
     setShowModal(false)
     setEditItem(null)
-    setForm({ date: format(new Date(), 'yyyy-MM-dd'), content: '', mood: 'good', exercises: '' })
+    setForm({ date: format(new Date(), 'yyyy-MM-dd'), title: '', content: '', mood: 'good', exercises: '' })
     setLoading(false)
   }
 
@@ -79,7 +79,7 @@ export default function JournalPage() {
             <p className="text-xs text-slate-400">나만의 비공개 기록</p>
           </div>
         </div>
-        <button onClick={() => { setForm({ date: format(new Date(), 'yyyy-MM-dd'), content: '', mood: 'good', exercises: '' }); setShowModal(true) }}
+        <button onClick={() => { setForm({ date: format(new Date(), 'yyyy-MM-dd'), title: '', content: '', mood: 'good', exercises: '' }); setShowModal(true) }}
           className="flex items-center gap-1 bg-purple-500 text-white text-sm px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors">
           <Plus size={16} /> 쓰기
         </button>
@@ -108,6 +108,7 @@ export default function JournalPage() {
                   return <span key={ex} title={ex} className="text-base ml-1">{info?.icon || ex}</span>
                 })}
               </div>
+              {entry.title && <p className="text-sm font-semibold text-slate-800 mb-1 truncate">{entry.title}</p>}
               <p className="text-sm text-slate-600 line-clamp-[8] whitespace-pre-wrap flex-1">{entry.content}</p>
             </button>
           ))}
@@ -132,6 +133,7 @@ export default function JournalPage() {
               </div>
               <button onClick={() => setSelected(null)}><X size={20} className="text-slate-400" /></button>
             </div>
+            {selected.title && <p className="font-semibold text-slate-800 mb-3">{selected.title}</p>}
             <div className="bg-slate-50 rounded-xl p-4 mb-4">
               <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{selected.content}</p>
             </div>
@@ -162,6 +164,12 @@ export default function JournalPage() {
                 <label className="text-xs text-slate-500 mb-1 block">날짜</label>
                 <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400"
                   value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">제목 (선택)</label>
+                <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400"
+                  placeholder="오늘 하루를 한 마디로..." value={form.title}
+                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">운동</label>

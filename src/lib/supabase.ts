@@ -46,6 +46,7 @@ export type Book = {
 export type JournalEntry = {
   id: string
   date: string
+  title?: string
   content: string
   mood?: string
   exercise?: string

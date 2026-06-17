@@ -6,11 +6,11 @@ import { CalendarDays, BookOpen, PiggyBank, NotebookPen, Star, Home, CheckSquare
 import { useEffect, useState } from 'react'
 
 const sharedItems = [
-  { href: '/', icon: Home, label: '홈' },
+  { href: '/', icon: Home, label: 'Home' },
   { href: '/todos', icon: CheckSquare, label: 'Todo' },
   { href: '/projects', icon: FolderKanban, label: 'Project' },
-  { href: '/calendar', icon: CalendarDays, label: '캘린더' },
-  { href: '/expenses', icon: PiggyBank, label: '가계부' },
+  { href: '/calendar', icon: CalendarDays, label: 'Calendar' },
+  { href: '/expenses', icon: PiggyBank, label: 'Budget' },
 ]
 
 const eddyOnlyItems = [

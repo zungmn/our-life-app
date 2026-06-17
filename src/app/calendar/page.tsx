@@ -129,6 +129,7 @@ export default function CalendarPage() {
 
   return (
     <div className="p-6 md:p-10 max-w-full">
+      <h2 className="text-2xl font-bold text-slate-800 mb-5">📅 Calendar</h2>
       {/* Month header */}
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => setCurrentDate(subMonths(currentDate, 1))}
