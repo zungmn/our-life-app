@@ -12,8 +12,19 @@ export default function JournalPage() {
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState<JournalEntry | null>(null)
   const [selected, setSelected] = useState<JournalEntry | null>(null)
-  const [form, setForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), content: '', mood: 'good' })
+  const [form, setForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), content: '', mood: 'good', exercises: '' })
   const [loading, setLoading] = useState(false)
+  const EXERCISES = ['달리기', '헬스']
+
+  const parseExercises = (ex?: string) => ex ? ex.split(',').map(s => s.trim()).filter(Boolean) : []
+
+  const toggleExercise = (ex: string) => {
+    setForm(f => {
+      const cur = parseExercises((f as any).exercises)
+      const next = cur.includes(ex) ? cur.filter(e => e !== ex) : [...cur, ex]
+      return { ...f, exercises: next.join(',') }
+    })
+  }
 
   const fetchEntries = async () => {
     const { data } = await supabase.from('journal_entries').select('*').order('date', { ascending: false })
@@ -24,7 +35,7 @@ export default function JournalPage() {
 
   const openEdit = (entry: JournalEntry) => {
     setSelected(null)
-    setForm({ date: entry.date, content: entry.content, mood: entry.mood || 'good' })
+    setForm({ date: entry.date, content: entry.content, mood: entry.mood || 'good', exercises: entry.exercise || '' })
     setEditItem(entry)
     setShowModal(true)
   }
@@ -32,17 +43,18 @@ export default function JournalPage() {
   const handleSave = async () => {
     if (!form.content.trim()) return
     setLoading(true)
+    const payload = { date: form.date, content: form.content, mood: form.mood, exercise: form.exercises || null }
     if (editItem) {
-      const { error } = await supabase.from('journal_entries').update({ date: form.date, content: form.content, mood: form.mood }).eq('id', editItem.id)
+      const { error } = await supabase.from('journal_entries').update(payload).eq('id', editItem.id)
       if (error) { alert('수정 실패: ' + error.message); setLoading(false); return }
     } else {
-      const { error } = await supabase.from('journal_entries').insert({ date: form.date, content: form.content, mood: form.mood })
+      const { error } = await supabase.from('journal_entries').insert(payload)
       if (error) { alert('저장 실패: ' + error.message); setLoading(false); return }
     }
     await fetchEntries()
     setShowModal(false)
     setEditItem(null)
-    setForm({ date: format(new Date(), 'yyyy-MM-dd'), content: '', mood: 'good' })
+    setForm({ date: format(new Date(), 'yyyy-MM-dd'), content: '', mood: 'good', exercises: '' })
     setLoading(false)
   }
 
@@ -64,7 +76,7 @@ export default function JournalPage() {
             <p className="text-xs text-slate-400">나만의 비공개 기록</p>
           </div>
         </div>
-        <button onClick={() => { setForm({ date: format(new Date(), 'yyyy-MM-dd'), content: '', mood: 'good' }); setShowModal(true) }}
+        <button onClick={() => { setForm({ date: format(new Date(), 'yyyy-MM-dd'), content: '', mood: 'good', exercises: '' }); setShowModal(true) }}
           className="flex items-center gap-1 bg-purple-500 text-white text-sm px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors">
           <Plus size={16} /> 쓰기
         </button>
@@ -82,11 +94,14 @@ export default function JournalPage() {
           {entries.map(entry => (
             <button key={entry.id} onClick={() => setSelected(entry)}
               className="card p-4 text-left hover:shadow-md transition-shadow min-h-[220px] flex flex-col">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="text-lg">{moodEmoji(entry.mood || 'good')}</span>
                 <p className="text-xs font-medium text-slate-500">
                   {format(new Date(entry.date), 'M/d (EEE)', { locale: ko })}
                 </p>
+                {parseExercises(entry.exercise).map(ex => (
+                  <span key={ex} className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full">{ex}</span>
+                ))}
               </div>
               <p className="text-sm text-slate-600 line-clamp-[8] whitespace-pre-wrap flex-1">{entry.content}</p>
             </button>
@@ -99,11 +114,14 @@ export default function JournalPage() {
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap flex-1">
                 <span className="text-2xl">{moodEmoji(selected.mood || 'good')}</span>
                 <p className="font-medium text-slate-800">
                   {format(new Date(selected.date), 'yyyy년 M월 d일 (EEEE)', { locale: ko })}
                 </p>
+                {parseExercises(selected.exercise).map(ex => (
+                  <span key={ex} className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">{ex}</span>
+                ))}
               </div>
               <button onClick={() => setSelected(null)}><X size={20} className="text-slate-400" /></button>
             </div>
@@ -137,6 +155,22 @@ export default function JournalPage() {
                 <label className="text-xs text-slate-500 mb-1 block">날짜</label>
                 <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400"
                   value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">운동</label>
+                <div className="flex gap-2">
+                  {EXERCISES.map(ex => (
+                    <button key={ex} type="button"
+                      onClick={() => toggleExercise(ex)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                        parseExercises(form.exercises).includes(ex)
+                          ? 'bg-green-500 text-white border-green-500'
+                          : 'border-slate-200 text-slate-500 hover:border-green-300'
+                      }`}>
+                      {ex}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">오늘의 기분</label>

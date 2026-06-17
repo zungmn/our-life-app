@@ -139,7 +139,7 @@ export default function BooksPage() {
     : '-'
 
   const BookCover = ({ book, size = 'md' }: { book: Book; size?: 'sm' | 'md' | 'lg' }) => {
-    const s = { sm: 'w-[84px] h-[120px]', md: 'w-[144px] h-[216px]', lg: 'w-[168px] h-[240px]' }[size]
+    const s = { sm: 'w-14 h-20', md: 'w-24 h-36', lg: 'w-28 h-40' }[size]
     return book.cover_url ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={book.cover_url} alt={book.title} className={`${s} object-cover rounded-lg flex-shrink-0`} />
@@ -150,7 +150,7 @@ export default function BooksPage() {
     )
   }
 
-  const StarRow = ({ rating, size = 24, onClick }: { rating?: number; size?: number; onClick?: (n: number) => void }) => (
+  const StarRow = ({ rating, size = 12, onClick }: { rating?: number; size?: number; onClick?: (n: number) => void }) => (
     <div className="flex">
       {[1,2,3,4,5].map(i => (
         <Star key={i} size={size}
@@ -300,13 +300,13 @@ export default function BooksPage() {
           {reading.length > 0 && (
             <div className="mb-6">
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">📖 읽는 중</h3>
-              <div className="flex gap-1.5 overflow-x-auto pb-2">
+              <div className="flex gap-4 overflow-x-auto pb-2">
                 {reading.map(book => (
                   <button key={book.id} onClick={() => setSelected(book)} className="flex-shrink-0 text-left hover:opacity-80 transition-opacity">
                     <BookCover book={book} size="lg" />
-                    <p className="text-lg font-semibold text-slate-800 mt-2 w-[168px] truncate">{book.title}</p>
-                    {book.author && <p className="text-base text-slate-400 w-[168px] truncate">{book.author}</p>}
-                    <StarRow rating={book.rating} size={22} />
+                    <p className="text-[11px] font-semibold text-slate-800 mt-1.5 w-28 truncate">{book.title}</p>
+                    {book.author && <p className="text-[10px] text-slate-400 w-28 truncate">{book.author}</p>}
+                    <StarRow rating={book.rating} size={11} />
                   </button>
                 ))}
               </div>
@@ -316,12 +316,12 @@ export default function BooksPage() {
           {completed.length > 0 && (
             <div className="mb-6">
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">✅ 완독 ({completed.length})</h3>
-              <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-1">
+              <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-3">
                 {completed.map(book => (
                   <button key={book.id} onClick={() => setSelected(book)} className="text-left hover:opacity-80 transition-opacity">
                     <BookCover book={book} size="md" />
-                    <p className="text-lg font-semibold text-slate-800 mt-1.5 truncate">{book.title}</p>
-                    <StarRow rating={book.rating} size={20} />
+                    <p className="text-[11px] font-semibold text-slate-800 mt-1 truncate">{book.title}</p>
+                    <StarRow rating={book.rating} size={10} />
                   </button>
                 ))}
               </div>
@@ -331,11 +331,11 @@ export default function BooksPage() {
           {wantToRead.length > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">🔖 읽고 싶은 ({wantToRead.length})</h3>
-              <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-1">
+              <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-3">
                 {wantToRead.map(book => (
                   <button key={book.id} onClick={() => setSelected(book)} className="text-left hover:opacity-80 transition-opacity">
                     <BookCover book={book} size="md" />
-                    <p className="text-lg font-semibold text-slate-800 mt-1.5 truncate">{book.title}</p>
+                    <p className="text-[11px] font-semibold text-slate-800 mt-1 truncate">{book.title}</p>
                   </button>
                 ))}
               </div>
@@ -365,13 +365,13 @@ export default function BooksPage() {
           {currentYearBooks.length === 0 ? (
             <p className="text-sm text-slate-400 py-4">{selectedYear}년에 완독한 책이 없어요</p>
           ) : (
-            <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-1">
+            <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-3">
               {currentYearBooks.map((book, idx) => (
                 <button key={book.id} onClick={() => setSelected(book)} className="text-left hover:opacity-80 transition-opacity">
                   {idx < 3 && <div className="text-[10px] font-bold text-amber-500 mb-0.5">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</div>}
                   <BookCover book={book} size="md" />
-                  <p className="text-lg font-semibold text-slate-800 mt-1.5 truncate">{book.title}</p>
-                  <StarRow rating={book.rating} size={20} />
+                  <p className="text-[11px] font-semibold text-slate-800 mt-1 truncate">{book.title}</p>
+                  <StarRow rating={book.rating} size={10} />
                 </button>
               ))}
             </div>
@@ -441,14 +441,14 @@ export default function BooksPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-bold text-2xl text-slate-800 leading-tight">{selected.title}</h3>
-                      {selected.author && <p className="text-base text-slate-400 mt-0.5">{selected.author}</p>}
+                      <h3 className="font-bold text-lg text-slate-800 leading-tight">{selected.title}</h3>
+                      {selected.author && <p className="text-sm text-slate-400 mt-0.5">{selected.author}</p>}
                       {(selected as any).genre && <span className="text-[10px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full mt-1 inline-block">{(selected as any).genre}</span>}
                     </div>
                     <button onClick={() => setSelected(null)}><X size={20} className="text-slate-400" /></button>
                   </div>
                   <div className="flex mt-2">
-                    <StarRow rating={selected.rating} size={32} onClick={r => handleRating(selected, r)} />
+                    <StarRow rating={selected.rating} size={20} onClick={r => handleRating(selected, r)} />
                   </div>
                   <p className="text-xs text-slate-400 mt-1">별점을 클릭해 수정</p>
                 </div>

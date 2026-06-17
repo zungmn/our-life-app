@@ -247,7 +247,7 @@ export default function Home() {
     const label = `${event.title}${event.time ? ' ' + formatKoreanTime(event.time) : ''}`
     return (
       <div key={event.id}
-        className={`text-[20px] px-1 py-0.5 truncate ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1.5'} ${isEnd ? 'rounded-r' : '-mr-1.5'}`}>
+        className={`text-[10px] px-0.5 py-0.5 truncate ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
         {isStart ? label : ' '}
       </div>
     )
@@ -277,17 +277,17 @@ export default function Home() {
         {/* Todo */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-800 text-2xl">📋 Todo</h3>
+            <h3 className="font-semibold text-slate-800 text-lg">📋 Todo</h3>
             <div className="flex items-center gap-2">
-              <Link href="/todos" className="text-lg text-blue-500 hover:underline">전체보기</Link>
+              <Link href="/todos" className="text-sm text-blue-500 hover:underline">전체보기</Link>
               <button onClick={openAddTodo}
-                className="flex items-center gap-1 bg-blue-500 text-white text-lg px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
-                <Plus size={20} /> 추가
+                className="flex items-center gap-1 bg-blue-500 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors">
+                <Plus size={16} /> 추가
               </button>
             </div>
           </div>
           <div className="space-y-1">
-            {homeTodos.length === 0 && <p className="text-lg text-slate-400 text-center py-3">할 일이 없어요 🎉</p>}
+            {homeTodos.length === 0 && <p className="text-sm text-slate-400 text-center py-3">할 일이 없어요 🎉</p>}
             {homeTodos.map(todo => {
               const dl = todo.deadline ? daysLeft(todo.deadline) : null
               const badge = ownerBadge(todo.owner || viewer)
@@ -297,10 +297,10 @@ export default function Home() {
                   <button onClick={() => handleTodoToggle(todo)} className="w-[30px] h-[30px] rounded-full border-2 border-slate-300 flex-shrink-0 hover:bg-slate-200 transition-colors" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-[21px] text-slate-800 truncate">{todo.title}</p>
-                      {todo.visibility === 'both' && <span className={`text-[13.5px] px-1 rounded font-bold flex-shrink-0 ${badge.cls}`}>{badge.label}</span>}
+                      <p className="text-sm text-slate-800 truncate">{todo.title}</p>
+                      {todo.visibility === 'both' && <span className={`text-xs px-1 rounded font-bold flex-shrink-0 ${badge.cls}`}>{badge.label}</span>}
                     </div>
-                    {dl && <p className={`text-[15px] font-medium ${dl.color}`}>{dl.label}{todo.deadline && ` · ${format(parseISO(todo.deadline), 'M/d')}`}</p>}
+                    {dl && <p className={`text-xs font-medium ${dl.color}`}>{dl.label}{todo.deadline && ` · ${format(parseISO(todo.deadline), 'M/d')}`}</p>}
                   </div>
                   <button onClick={() => handleTodoDelete(todo.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all"><Trash2 size={18} /></button>
                 </div>
@@ -312,17 +312,17 @@ export default function Home() {
         {/* Project */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-800 text-2xl">🗂️ Project</h3>
+            <h3 className="font-semibold text-slate-800 text-lg">🗂️ Project</h3>
             <div className="flex items-center gap-2">
-              <Link href="/projects" className="text-lg text-blue-500 hover:underline">전체보기</Link>
+              <Link href="/projects" className="text-sm text-blue-500 hover:underline">전체보기</Link>
               <button onClick={openAddProject}
-                className="flex items-center gap-1 bg-purple-500 text-white text-lg px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors">
-                <Plus size={20} /> 추가
+                className="flex items-center gap-1 bg-purple-500 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-purple-600 transition-colors">
+                <Plus size={16} /> 추가
               </button>
             </div>
           </div>
           <div className="space-y-2">
-            {visibleProjects.length === 0 && <p className="text-lg text-slate-400 py-1">진행 중인 프로젝트가 없어요</p>}
+            {visibleProjects.length === 0 && <p className="text-sm text-slate-400 py-1">진행 중인 프로젝트가 없어요</p>}
             {visibleProjects.map(project => {
               const dl = project.deadline ? daysLeft(project.deadline) : null
               return (
@@ -330,11 +330,11 @@ export default function Home() {
                   className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg group cursor-pointer">
                   <div className="w-3 h-3 rounded-full bg-blue-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[21px] text-slate-800 truncate">{project.title}</p>
-                    {dl && <p className={`text-[15px] ${dl.color}`}>{dl.label}</p>}
+                    <p className="text-sm text-slate-800 truncate">{project.title}</p>
+                    {dl && <p className={`text-xs ${dl.color}`}>{dl.label}</p>}
                   </div>
                   <button onClick={() => handleProjectComplete(project)}
-                    className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[15px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full hover:bg-green-200 transition-all flex-shrink-0">
+                    className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full hover:bg-green-200 transition-all flex-shrink-0">
                     <Check size={15} /> 완료
                   </button>
                   <button onClick={() => handleProjectDelete(project.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all"><Trash2 size={18} /></button>
@@ -348,24 +348,24 @@ export default function Home() {
       {/* Calendar */}
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
-          <button onClick={() => setCalDate(subMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg"><ChevronLeft size={36} className="text-slate-600" /></button>
-          <h3 className="font-semibold text-slate-800 text-[32px]">{format(calDate, 'yyyy년 M월')}</h3>
+          <button onClick={() => setCalDate(subMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg"><ChevronLeft size={20} className="text-slate-600" /></button>
+          <h3 className="font-semibold text-slate-800 text-xl">{format(calDate, 'yyyy년 M월')}</h3>
           <div className="flex items-center gap-2">
-            <button onClick={() => openAddEvent()} className="flex items-center gap-1 bg-slate-700 text-white text-[24px] px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors">
-              <Plus size={26} /> 추가
+            <button onClick={() => openAddEvent()} className="flex items-center gap-1 bg-slate-700 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors">
+              <Plus size={16} /> 추가
             </button>
-            <button onClick={() => setCalDate(addMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg"><ChevronRight size={36} className="text-slate-600" /></button>
+            <button onClick={() => setCalDate(addMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg"><ChevronRight size={20} className="text-slate-600" /></button>
           </div>
         </div>
 
         <div className="grid grid-cols-7 border-b border-slate-100">
           {WEEKDAYS.map((d, i) => (
-            <div key={d} className={`text-center text-[24px] font-medium py-2 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
+            <div key={d} className={`text-center text-xs font-medium py-2 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
           ))}
         </div>
 
         <div className="grid grid-cols-7">
-          {Array(startPad).fill(null).map((_, i) => <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[160px]" />)}
+          {Array(startPad).fill(null).map((_, i) => <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[80px]" />)}
           {days.map((day, i) => {
             const dateStr = format(day, 'yyyy-MM-dd')
             const de = dayEvents(day)
@@ -375,13 +375,13 @@ export default function Home() {
             const isLastRow = i >= days.length - 7
             return (
               <div key={dateStr} onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                className={`border-b border-r border-slate-50 min-h-[160px] p-1.5 cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${isLastRow ? 'border-b-0' : ''}`}>
-                <div className={`text-[24px] font-medium w-12 h-12 flex items-center justify-center rounded-full mb-1 ${todayMark ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>
+                className={`border-b border-r border-slate-50 min-h-[80px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${isLastRow ? 'border-b-0' : ''}`}>
+                <div className={`text-xs font-medium w-7 h-7 flex items-center justify-center rounded-full mb-0.5 ${todayMark ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>
                   {format(day, 'd')}
                 </div>
                 <div className="space-y-0.5">
                   {de.slice(0, 5).map(event => renderCellEvent(event, dateStr))}
-                  {de.length > 5 && <div className="text-[20px] text-slate-400 px-1">+{de.length - 5}</div>}
+                  {de.length > 5 && <div className="text-[10px] text-slate-400 px-0.5">+{de.length - 5}</div>}
                 </div>
               </div>
             )
@@ -391,13 +391,13 @@ export default function Home() {
         {selectedDate && (
           <div className="border-t border-slate-100 p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[28px] font-medium text-slate-700">{format(new Date(selectedDate), 'M월 d일 (EEEE)', { locale: ko })}</p>
+              <p className="text-sm font-medium text-slate-700">{format(new Date(selectedDate), 'M월 d일 (EEEE)', { locale: ko })}</p>
               <button onClick={() => openAddEvent(selectedDate)}
-                className="flex items-center gap-1 text-[20px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded-lg transition-colors">
-                <Plus size={20} /> 이날 일정 추가
+                className="flex items-center gap-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded-lg transition-colors">
+                <Plus size={12} /> 이날 일정 추가
               </button>
             </div>
-            {selectedEvents.length === 0 ? <p className="text-[20px] text-slate-400">일정이 없어요</p> : (
+            {selectedEvents.length === 0 ? <p className="text-xs text-slate-400">일정이 없어요</p> : (
               <div className="space-y-1">
                 {selectedEvents.map(event => {
                   const pc = PERSON_COLORS[event.person]
@@ -406,16 +406,16 @@ export default function Home() {
                       className={`flex items-center gap-2 px-3 py-2 rounded-lg ${pc.bg} group cursor-pointer`}>
                       <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc.dot }} />
                       <div className="flex-1">
-                        <p className={`text-[24px] ${pc.text}`}>{event.title}</p>
-                        {event.end_date && <p className="text-[18px] text-slate-500">~ {event.end_date}</p>}
+                        <p className={`text-sm ${pc.text}`}>{event.title}</p>
+                        {event.end_date && <p className="text-xs text-slate-500">~ {event.end_date}</p>}
                         {event.file_url && (
                           <a href={event.file_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                            className="text-[18px] text-blue-500 hover:underline inline-flex items-center gap-1">
-                            <Paperclip size={14} /> 첨부파일
+                            className="text-xs text-blue-500 hover:underline inline-flex items-center gap-1">
+                            <Paperclip size={10} /> 첨부파일
                           </a>
                         )}
                       </div>
-                      {event.time && <p className="text-[20px] text-slate-400">{formatKoreanTime(event.time)}</p>}
+                      {event.time && <p className="text-xs text-slate-400">{formatKoreanTime(event.time)}</p>}
                       <label className="opacity-0 group-hover:opacity-100 cursor-pointer text-slate-400 hover:text-blue-400 transition-all" onClick={e => e.stopPropagation()}>
                         <input type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleEventFileUpload(f, event.id) }} />
                         <Paperclip size={20} />
@@ -436,7 +436,7 @@ export default function Home() {
           {Object.entries(PERSON_COLORS).map(([key, pc]) => (
             <div key={key} className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-full" style={{ background: pc.dot }} />
-              <span className="text-[20px] text-slate-400">{pc.label}</span>
+              <span className="text-xs text-slate-400">{pc.label}</span>
             </div>
           ))}
         </div>

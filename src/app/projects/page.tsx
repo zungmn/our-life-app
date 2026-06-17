@@ -192,10 +192,10 @@ export default function ProjectsPage() {
                         className="card p-4 w-full text-left hover:shadow-md transition-shadow">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-800 text-xl">{project.title}</p>
+                            <p className="font-medium text-slate-800 text-base">{project.title}</p>
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              {dl && <p className={`text-base ${dl.color}`}>{dl.label}</p>}
-                              <span className="text-base text-slate-400">
+                              {dl && <p className={`text-xs ${dl.color}`}>{dl.label}</p>}
+                              <span className="text-xs text-slate-400">
                                 {project.visibility === 'both' ? '함께' : project.visibility === 'eddy' ? 'Eddy' : 'Judy'}
                               </span>
                             </div>

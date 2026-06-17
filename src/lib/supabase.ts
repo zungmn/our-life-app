@@ -48,6 +48,7 @@ export type JournalEntry = {
   date: string
   content: string
   mood?: string
+  exercise?: string
   created_at: string
 }
 

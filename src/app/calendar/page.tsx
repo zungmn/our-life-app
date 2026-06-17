@@ -133,14 +133,14 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => setCurrentDate(subMonths(currentDate, 1))}
           className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-          <ChevronLeft size={36} className="text-slate-600" />
+          <ChevronLeft size={24} className="text-slate-600" />
         </button>
-        <h2 className="text-[32px] font-bold text-slate-800">
+        <h2 className="text-xl font-bold text-slate-800">
           {format(currentDate, 'yyyy년 M월')}
         </h2>
         <button onClick={() => setCurrentDate(addMonths(currentDate, 1))}
           className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-          <ChevronRight size={36} className="text-slate-600" />
+          <ChevronRight size={24} className="text-slate-600" />
         </button>
       </div>
 
@@ -148,7 +148,7 @@ export default function CalendarPage() {
       <div className="card overflow-hidden mb-4">
         <div className="grid grid-cols-7 border-b border-slate-100">
           {WEEKDAYS.map((d, i) => (
-            <div key={d} className={`text-center text-[24px] font-medium py-2.5 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>
+            <div key={d} className={`text-center text-sm font-medium py-2 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>
               {d}
             </div>
           ))}
@@ -156,7 +156,7 @@ export default function CalendarPage() {
 
         <div className="grid grid-cols-7">
           {Array(startPad).fill(null).map((_, i) => (
-            <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[220px]" />
+            <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[100px]" />
           ))}
           {days.map((day, i) => {
             const dateStr = format(day, 'yyyy-MM-dd')
@@ -170,11 +170,11 @@ export default function CalendarPage() {
               <div
                 key={dateStr}
                 onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                className={`border-b border-r border-slate-50 min-h-[220px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${
+                className={`border-b border-r border-slate-50 min-h-[100px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${
                   isSelected ? 'bg-blue-50' : ''
                 } ${isLastRow ? 'border-b-0' : ''}`}
               >
-                <div className={`text-[24px] font-medium w-12 h-12 flex items-center justify-center rounded-full mb-1 ${
+                <div className={`text-sm font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${
                   today ? 'bg-blue-500 text-white' :
                   dayOfWeek === 0 ? 'text-red-400' :
                   dayOfWeek === 6 ? 'text-blue-400' :
@@ -189,13 +189,13 @@ export default function CalendarPage() {
                     const isEnd = (event.end_date || event.date) === dateStr
                     const label = `${event.title}${event.time ? ' ' + formatKoreanTime(event.time) : ''}`
                     return (
-                      <div key={event.id} className={`text-[20px] px-1 py-0.5 truncate ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
+                      <div key={event.id} className={`text-xs px-0.5 py-0.5 truncate ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
                         {isStart ? label : ' '}
                       </div>
                     )
                   })}
                   {de.length > 5 && (
-                    <div className="text-[20px] text-slate-400 px-1">+{de.length - 5}</div>
+                    <div className="text-xs text-slate-400 px-0.5">+{de.length - 5}</div>
                   )}
                 </div>
               </div>
@@ -209,7 +209,7 @@ export default function CalendarPage() {
         {Object.entries(PERSON_COLORS).map(([key, pc]) => (
           <div key={key} className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full" style={{ background: pc.dot }} />
-            <span className="text-[20px] text-slate-500">{pc.label}</span>
+            <span className="text-sm text-slate-500">{pc.label}</span>
           </div>
         ))}
       </div>
@@ -218,18 +218,18 @@ export default function CalendarPage() {
       {selectedDate && (
         <div className="card p-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-800 text-[28px]">
+            <h3 className="font-semibold text-slate-800 text-base">
               {format(new Date(selectedDate), 'M월 d일 (EEEE)', { locale: ko })}
             </h3>
             <button
               onClick={openAdd}
-              className="flex items-center gap-1 bg-blue-500 text-white text-[20px] px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors"
+              className="flex items-center gap-1 bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors"
             >
               <Plus size={20} /> 일정 추가
             </button>
           </div>
           {selectedEvents.length === 0 ? (
-            <p className="text-[20px] text-slate-400 py-2">일정이 없어요. 추가해보세요!</p>
+            <p className="text-sm text-slate-400 py-2">일정이 없어요. 추가해보세요!</p>
           ) : (
             <div className="space-y-2">
               {selectedEvents.map(event => {
@@ -239,18 +239,18 @@ export default function CalendarPage() {
                     className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer group ${pc.bg}`}>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className={`text-[24px] font-medium ${pc.text}`}>{event.title}</p>
-                        {event.time && <p className="text-[20px] text-slate-500">{formatKoreanTime(event.time)}</p>}
+                        <p className={`text-sm font-medium ${pc.text}`}>{event.title}</p>
+                        {event.time && <p className="text-xs text-slate-500">{formatKoreanTime(event.time)}</p>}
                       </div>
-                      {event.end_date && <p className="text-[18px] text-slate-500 mt-0.5">~ {event.end_date}</p>}
-                      {event.note && <p className="text-[18px] text-slate-500 mt-0.5">{event.note}</p>}
+                      {event.end_date && <p className="text-xs text-slate-500 mt-0.5">~ {event.end_date}</p>}
+                      {event.note && <p className="text-xs text-slate-500 mt-0.5">{event.note}</p>}
                       {event.file_url && (
                         <a href={event.file_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                          className="text-[18px] text-blue-500 hover:underline mt-0.5 inline-flex items-center gap-1">
-                          <Paperclip size={16} /> 첨부파일
+                          className="text-xs text-blue-500 hover:underline mt-0.5 inline-flex items-center gap-1">
+                          <Paperclip size={12} /> 첨부파일
                         </a>
                       )}
-                      <span className={`text-[16px] mt-1 inline-block px-1.5 py-0.5 rounded-full ${pc.text} bg-white/60`}>{pc.label}</span>
+                      <span className={`text-xs mt-1 inline-block px-1.5 py-0.5 rounded-full ${pc.text} bg-white/60`}>{pc.label}</span>
                     </div>
                     <div className="flex flex-col gap-1 items-end">
                       <label className="opacity-0 group-hover:opacity-100 cursor-pointer text-slate-400 hover:text-blue-400 transition-all">

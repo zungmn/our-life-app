@@ -7,7 +7,7 @@ import DateInput from '@/components/DateInput'
 
 const MONTHS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
 const THIS_MONTH = new Date().getMonth() + 1
-const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 
 function nextBirthday(birthday: string) {
   const [m, d] = birthday.split('-').map(Number)
@@ -139,12 +139,12 @@ export default function BirthdaysPage() {
     <div className="p-6 md:p-10 max-w-full">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800">🎁 생일선물</h2>
+          <h2 className="text-2xl font-bold text-slate-800">🎁 생일선물</h2>
           <p className="text-base text-slate-400 mt-0.5">받은 선물, 준 선물 기록</p>
         </div>
         <button onClick={() => setShowModal(true)}
-          className="flex items-center gap-1 bg-rose-500 text-white px-5 py-2.5 rounded-lg text-lg hover:bg-rose-600 transition-colors">
-          <Plus size={22} /> 추가
+          className="flex items-center gap-1 bg-rose-500 text-white px-4 py-2 rounded-lg text-[0.9rem] hover:bg-rose-600 transition-colors">
+          <Plus size={16} /> 추가
         </button>
       </div>
 
@@ -152,7 +152,7 @@ export default function BirthdaysPage() {
       <div className="flex gap-1 mb-4">
         {[{ k: 'list', l: '목록' }, { k: 'calendar', l: '캘린더' }].map(t => (
           <button key={t.k} onClick={() => setViewTab(t.k as typeof viewTab)}
-            className={`px-4 py-2 rounded-lg text-base font-medium transition-colors ${viewTab === t.k ? 'bg-rose-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
+            className={`px-4 py-2 rounded-lg text-[0.9rem] font-medium transition-colors ${viewTab === t.k ? 'bg-rose-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
             {t.l}
           </button>
         ))}
@@ -168,7 +168,7 @@ export default function BirthdaysPage() {
           </div>
           <div className="grid grid-cols-7 border-b border-slate-100">
             {WEEKDAYS.map((d, i) => (
-              <div key={d} className={`text-center text-base font-medium py-2 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
+              <div key={d} className={`text-center text-base font-medium py-2 ${i === 6 ? 'text-red-400' : i === 5 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7">
@@ -177,7 +177,7 @@ export default function BirthdaysPage() {
               const year = calMonth.getFullYear()
               const firstDay = new Date(year, m - 1, 1)
               const lastDay = new Date(year, m, 0)
-              const pad = firstDay.getDay()
+              const pad = (firstDay.getDay() + 6) % 7
               const daysInMonth = lastDay.getDate()
               const cells = []
               for (let i = 0; i < pad; i++) cells.push(<div key={`p${i}`} className="min-h-[100px] border-b border-r border-slate-50" />)

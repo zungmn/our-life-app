@@ -117,7 +117,7 @@ export default function TodosPage() {
                   </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-xl font-medium text-slate-800">{todo.title}</p>
+                      <p className="text-base font-medium text-slate-800">{todo.title}</p>
                       {todo.visibility === 'both' && (
                         <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${badge.cls}`}>{badge.label}</span>
                       )}
@@ -126,11 +126,11 @@ export default function TodosPage() {
                       {dl && (
                         <div className="flex items-center gap-1">
                           {dl.urgent && <AlertCircle size={15} className="text-red-400" />}
-                          <p className={`text-base font-medium ${dl.color}`}>{dl.label}</p>
+                          <p className={`text-xs font-medium ${dl.color}`}>{dl.label}</p>
                         </div>
                       )}
                       {todo.deadline && (
-                        <p className="text-base text-slate-400">{format(parseISO(todo.deadline), 'yyyy.M.d')}</p>
+                        <p className="text-xs text-slate-400">{format(parseISO(todo.deadline), 'yyyy.M.d')}</p>
                       )}
                     </div>
                   </div>
@@ -156,7 +156,7 @@ export default function TodosPage() {
                   className="w-8 h-8 rounded-full bg-slate-300 flex-shrink-0 flex items-center justify-center">
                   <Check size={18} className="text-white" />
                 </button>
-                <p className="text-xl text-slate-500 line-through flex-1">{todo.title}</p>
+                <p className="text-base text-slate-500 line-through flex-1">{todo.title}</p>
                 <button onClick={() => handleDelete(todo.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all">
                   <Trash2 size={22} />
                 </button>
