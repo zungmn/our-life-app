@@ -298,18 +298,16 @@ export default function ProjectsPage() {
                   </div>
                 ))}
               </div>
-              <div className="space-y-2">
-                <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+              <div className="flex gap-2">
+                <input className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
                   placeholder="Todo 추가..." value={todoText}
                   onChange={e => setTodoText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAddTodo()} />
-                <div className="flex gap-2">
-                  <DatePickerInput value={todoDeadline} onChange={setTodoDeadline} className="flex-1" />
-                  <button onClick={handleAddTodo}
-                    className="bg-blue-500 text-white px-4 rounded-lg text-sm hover:bg-blue-600 transition-colors flex-shrink-0">
-                    추가
-                  </button>
-                </div>
+                <DatePickerInput value={todoDeadline} onChange={setTodoDeadline} className="w-32" />
+                <button onClick={handleAddTodo}
+                  className="bg-blue-500 text-white px-3 rounded-lg text-sm hover:bg-blue-600 transition-colors flex-shrink-0">
+                  추가
+                </button>
               </div>
             </div>
 

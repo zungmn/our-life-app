@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, Event } from '@/lib/supabase'
@@ -8,7 +8,7 @@ import { ko } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, Paperclip } from 'lucide-react'
 import DatePickerInput from '@/components/DatePickerInput'
 
-const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 const PERSON_ORDER: Record<string, number> = { both: 0, eddy: 1, judy: 2 }
 
 function sortEvents(evs: Event[]) {
@@ -44,7 +44,7 @@ export default function CalendarPage() {
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
-  const startPad = getDay(monthStart)
+  const startPad = (getDay(monthStart) + 6) % 7
 
   const fetchEvents = useCallback(async () => {
     const { data } = await supabase
@@ -148,7 +148,7 @@ export default function CalendarPage() {
       <div className="card overflow-hidden mb-4">
         <div className="grid grid-cols-7 border-b border-slate-100">
           {WEEKDAYS.map((d, i) => (
-            <div key={d} className={`text-center text-sm font-medium py-2 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>
+            <div key={d} className={`text-center text-sm font-medium py-2 ${i === 6 ? 'text-red-400' : i === 5 ? 'text-blue-400' : 'text-slate-500'}`}>
               {d}
             </div>
           ))}
@@ -187,10 +187,14 @@ export default function CalendarPage() {
                     const pc = PERSON_COLORS[event.person]
                     const isStart = event.date === dateStr
                     const isEnd = (event.end_date || event.date) === dateStr
-                    const label = `${event.title}${event.time ? ' ' + formatKoreanTime(event.time) : ''}`
                     return (
-                      <div key={event.id} className={`text-xs px-0.5 py-0.5 truncate ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
-                        {isStart ? label : ' '}
+                      <div key={event.id} className={`flex items-center text-xs px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
+                        {isStart ? (
+                          <>
+                            <span className="truncate flex-1">{event.title}</span>
+                            {event.time && <span className="flex-shrink-0 ml-0.5 text-[10px] opacity-80">{formatKoreanTime(event.time)}</span>}
+                          </>
+                        ) : ' '}
                       </div>
                     )
                   })}

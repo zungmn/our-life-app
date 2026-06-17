@@ -95,7 +95,7 @@ export default function ArchivePage() {
           <p className="text-sm">자료를 추가해보세요</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
           {displayed.map(item => (
             <button key={item.id} onClick={() => setSelected(item)} className="card p-3 text-left hover:shadow-md transition-shadow">
               {item.file_url && isImage(item.file_url) ? (

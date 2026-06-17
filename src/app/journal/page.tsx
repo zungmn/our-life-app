@@ -14,7 +14,10 @@ export default function JournalPage() {
   const [selected, setSelected] = useState<JournalEntry | null>(null)
   const [form, setForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), content: '', mood: 'good', exercises: '' })
   const [loading, setLoading] = useState(false)
-  const EXERCISES = ['달리기', '헬스']
+  const EXERCISES = [
+    { value: '달리기', icon: '🏃' },
+    { value: '헬스', icon: '🏋️' },
+  ]
 
   const parseExercises = (ex?: string) => ex ? ex.split(',').map(s => s.trim()).filter(Boolean) : []
 
@@ -94,14 +97,16 @@ export default function JournalPage() {
           {entries.map(entry => (
             <button key={entry.id} onClick={() => setSelected(entry)}
               className="card p-4 text-left hover:shadow-md transition-shadow min-h-[220px] flex flex-col">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <div className="flex items-center mb-1">
                 <span className="text-lg">{moodEmoji(entry.mood || 'good')}</span>
-                <p className="text-xs font-medium text-slate-500">
+                <p className="text-xs font-medium text-slate-500 ml-2">
                   {format(new Date(entry.date), 'M/d (EEE)', { locale: ko })}
                 </p>
-                {parseExercises(entry.exercise).map(ex => (
-                  <span key={ex} className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full">{ex}</span>
-                ))}
+                <div className="flex-1" />
+                {parseExercises(entry.exercise).map(ex => {
+                  const info = EXERCISES.find(e => e.value === ex)
+                  return <span key={ex} title={ex} className="text-base ml-1">{info?.icon || ex}</span>
+                })}
               </div>
               <p className="text-sm text-slate-600 line-clamp-[8] whitespace-pre-wrap flex-1">{entry.content}</p>
             </button>
@@ -114,14 +119,16 @@ export default function JournalPage() {
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 flex-wrap flex-1">
+              <div className="flex items-center flex-1">
                 <span className="text-2xl">{moodEmoji(selected.mood || 'good')}</span>
-                <p className="font-medium text-slate-800">
+                <p className="font-medium text-slate-800 ml-2">
                   {format(new Date(selected.date), 'yyyy년 M월 d일 (EEEE)', { locale: ko })}
                 </p>
-                {parseExercises(selected.exercise).map(ex => (
-                  <span key={ex} className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">{ex}</span>
-                ))}
+                <div className="flex-1" />
+                {parseExercises(selected.exercise).map(ex => {
+                  const info = EXERCISES.find(e => e.value === ex)
+                  return <span key={ex} title={ex} className="text-xl ml-1">{info?.icon || ex}</span>
+                })}
               </div>
               <button onClick={() => setSelected(null)}><X size={20} className="text-slate-400" /></button>
             </div>
@@ -160,14 +167,14 @@ export default function JournalPage() {
                 <label className="text-xs text-slate-500 mb-1 block">운동</label>
                 <div className="flex gap-2">
                   {EXERCISES.map(ex => (
-                    <button key={ex} type="button"
-                      onClick={() => toggleExercise(ex)}
+                    <button key={ex.value} type="button"
+                      onClick={() => toggleExercise(ex.value)}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                        parseExercises(form.exercises).includes(ex)
+                        parseExercises(form.exercises).includes(ex.value)
                           ? 'bg-green-500 text-white border-green-500'
                           : 'border-slate-200 text-slate-500 hover:border-green-300'
                       }`}>
-                      {ex}
+                      {ex.icon} {ex.value}
                     </button>
                   ))}
                 </div>
