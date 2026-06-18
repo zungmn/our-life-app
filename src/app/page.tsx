@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, Event as CalendarEvent, Todo, Project } from '@/lib/supabase'
@@ -241,12 +241,13 @@ export default function Home() {
   })) : []
 
   const renderCellEvent = (event: CalendarEvent, dateStr: string) => {
-    const pc = PERSON_COLORS[event.person]
+    const isBirthday = event.title.startsWith('🎂')
+    const pc = isBirthday ? { bg: 'bg-red-100', text: 'text-red-600' } : PERSON_COLORS[event.person]
     const isStart = event.date === dateStr
     const isEnd = (event.end_date || event.date) === dateStr
     return (
       <div key={event.id}
-        className={`flex items-center text-[10px] px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
+        className={`flex items-center text-sm px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
         {isStart ? (
           <>
             <span className="truncate flex-1">{event.title}</span>
@@ -380,12 +381,12 @@ export default function Home() {
             return (
               <div key={dateStr} onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                 className={`border-b border-r border-slate-50 min-h-[80px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${isLastRow ? 'border-b-0' : ''}`}>
-                <div className={`text-xs font-medium w-7 h-7 flex items-center justify-center rounded-full mb-0.5 ${todayMark ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>
+                <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${todayMark ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>
                   {format(day, 'd')}
                 </div>
                 <div className="space-y-0.5">
                   {de.slice(0, 5).map(event => renderCellEvent(event, dateStr))}
-                  {de.length > 5 && <div className="text-[10px] text-slate-400 px-0.5">+{de.length - 5}</div>}
+                  {de.length > 5 && <div className="text-sm text-slate-400 px-0.5">+{de.length - 5}</div>}
                 </div>
               </div>
             )

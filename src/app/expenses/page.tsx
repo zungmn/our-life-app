@@ -124,7 +124,7 @@ export default function ExpensesPage() {
   return (
     <div className="p-6 md:p-10 max-w-full">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-slate-800">💰 Budget</h2>
+        <h2 className="text-2xl font-bold text-slate-800">💰 Budget</h2>
         <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
           <button onClick={() => { setViewer('eddy'); localStorage.setItem('viewer', 'eddy'); window.dispatchEvent(new CustomEvent('viewer-change')) }}
             className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${viewer === 'eddy' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>Eddy</button>

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, Event } from '@/lib/supabase'
@@ -175,7 +175,7 @@ export default function CalendarPage() {
                   isSelected ? 'bg-blue-50' : ''
                 } ${isLastRow ? 'border-b-0' : ''}`}
               >
-                <div className={`text-sm font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${
+                <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${
                   today ? 'bg-blue-500 text-white' :
                   dayOfWeek === 0 ? 'text-red-400' :
                   dayOfWeek === 6 ? 'text-blue-400' :
@@ -189,7 +189,7 @@ export default function CalendarPage() {
                     const isStart = event.date === dateStr
                     const isEnd = (event.end_date || event.date) === dateStr
                     return (
-                      <div key={event.id} className={`flex items-center text-xs px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
+                      <div key={event.id} className={`flex items-center text-sm px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
                         {isStart ? (
                           <>
                             <span className="truncate flex-1">{event.title}</span>
