@@ -25,7 +25,7 @@ export default function BirthdaysPage() {
   const [selected, setSelected] = useState<Birthday | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [showGiftModal, setShowGiftModal] = useState(false)
-  const [form, setForm] = useState({ name: '', birthday: '', lunar_birthday: '', relation: '' })
+  const [form, setForm] = useState({ name: '', birthday: '', lunar_birthday: '', relation: '', show_in_calendar: false })
   const [editItem, setEditItem] = useState<Birthday | null>(null)
   const [giftForm, setGiftForm] = useState({ year: new Date().getFullYear().toString(), direction: 'received' as 'received' | 'given', gift: '' })
   const [filterMonth, setFilterMonth] = useState(0)
@@ -56,6 +56,7 @@ export default function BirthdaysPage() {
       birthday: `2000-${bd.birthday}`,
       lunar_birthday: bd.lunar_birthday || '',
       relation: bd.relation || '',
+      show_in_calendar: bd.show_in_calendar || false,
     })
     setShowModal(true)
   }
@@ -71,13 +72,38 @@ export default function BirthdaysPage() {
       birthday: `${mm}-${dd}`,
       relation: form.relation || null,
       lunar_birthday: form.lunar_birthday || null,
+      show_in_calendar: form.show_in_calendar,
     }
     if (editItem) {
       await supabase.from('birthdays').update(payload).eq('id', editItem.id)
+      // Sync calendar events based on updated toggle
+      await supabase.from('events').delete().eq('title', `🎂 ${form.name}`).eq('person', 'both')
+      if (form.show_in_calendar) {
+        const now = new Date()
+        for (let y = now.getFullYear(); y <= now.getFullYear() + 2; y++) {
+          await supabase.from('events').insert({
+            title: `🎂 ${form.name}`,
+            date: `${y}-${mm}-${dd}`,
+            person: 'both',
+            note: form.relation ? `생일 · ${form.relation}` : '생일',
+          })
+        }
+      }
     } else {
-      await supabase.from('birthdays').insert(payload)
+      const { data: inserted } = await supabase.from('birthdays').insert(payload).select().single()
+      if (inserted && form.show_in_calendar) {
+        const now = new Date()
+        for (let y = now.getFullYear(); y <= now.getFullYear() + 2; y++) {
+          await supabase.from('events').insert({
+            title: `🎂 ${form.name}`,
+            date: `${y}-${mm}-${dd}`,
+            person: 'both',
+            note: form.relation ? `생일 · ${form.relation}` : '생일',
+          })
+        }
+      }
     }
-    setForm({ name: '', birthday: '', lunar_birthday: '', relation: '' })
+    setForm({ name: '', birthday: '', lunar_birthday: '', relation: '', show_in_calendar: false })
     setEditItem(null)
     setShowModal(false)
     fetchAll()
@@ -190,10 +216,10 @@ export default function BirthdaysPage() {
                 const isLast = d + pad > daysInMonth - 7 + pad
                 cells.push(
                   <div key={d} className={`min-h-[100px] p-1 border-b border-r border-slate-50 ${isLast ? 'border-b-0' : ''}`}>
-                    <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{d}</div>
+                    <div className={`text-sm font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{d}</div>
                     {bds.map(b => (
                       <button key={b.id} onClick={() => setSelected(b)} className="w-full text-left">
-                        <div className="text-sm bg-rose-100 text-rose-600 px-1 py-0.5 rounded truncate mb-0.5">🎂 {b.name}</div>
+                        <div className="text-xs bg-rose-100 text-rose-600 px-1 py-0.5 rounded truncate mb-0.5">🎂 {b.name}</div>
                       </button>
                     ))}
                   </div>
@@ -406,6 +432,16 @@ export default function BirthdaysPage() {
                   placeholder="부모님, 친구, 동료 등" value={form.relation}
                   onChange={e => setForm(f => ({ ...f, relation: e.target.value }))} />
               </div>
+              <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
+                onClick={() => setForm(f => ({ ...f, show_in_calendar: !f.show_in_calendar }))}>
+                <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${form.show_in_calendar ? 'bg-rose-400' : 'bg-slate-300'}`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.show_in_calendar ? 'translate-x-4' : 'translate-x-0'}`} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-700">캘린더에 표시</p>
+                  <p className="text-xs text-slate-400">{form.show_in_calendar ? '홈/캘린더에 생일 일정으로 표시됨' : '캘린더에 표시되지 않음'}</p>
+                </div>
+              </label>
               <button onClick={handleSave} disabled={!form.name.trim() || !form.birthday}
                 className="w-full bg-rose-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-rose-600 disabled:opacity-50 transition-colors">
                 저장

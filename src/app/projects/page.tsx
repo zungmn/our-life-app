@@ -161,7 +161,7 @@ export default function ProjectsPage() {
     <div className="p-6 md:p-10 max-w-full">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800">🗂️ Project</h2>
+          <h2 className="text-2xl font-bold text-slate-800">🗂️ Project</h2>
           <p className="text-base text-slate-400 mt-0.5">{viewer === 'eddy' ? 'Eddy' : 'Judy'} 화면</p>
         </div>
         <button onClick={() => setShowModal(true)}
