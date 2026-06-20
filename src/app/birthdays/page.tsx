@@ -5,6 +5,21 @@ import { supabase, Birthday, BirthdayGift } from '@/lib/supabase'
 import { Plus, X, Trash2, Gift, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import DateInput from '@/components/DateInput'
 
+// 음력→양력 변환 (korean-lunar-calendar)
+function lunarToSolarDate(year: number, lunarMM: string, lunarDD: string): string | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const KLC = require('korean-lunar-calendar')
+    const cal = new KLC()
+    cal.setLunarDate(year, parseInt(lunarMM, 10), parseInt(lunarDD, 10), false)
+    const s = cal.getSolarCalendar()
+    if (!s || !s.year) return null
+    return `${s.year}-${String(s.month).padStart(2, '0')}-${String(s.day).padStart(2, '0')}`
+  } catch {
+    return null
+  }
+}
+
 const MONTHS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
 const THIS_MONTH = new Date().getMonth() + 1
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
@@ -76,31 +91,16 @@ export default function BirthdaysPage() {
     }
     if (editItem) {
       await supabase.from('birthdays').update(payload).eq('id', editItem.id)
-      // Sync calendar events based on updated toggle
       await supabase.from('events').delete().eq('title', `🎂 ${form.name}`).eq('person', 'both')
       if (form.show_in_calendar) {
-        const now = new Date()
-        for (let y = now.getFullYear(); y <= now.getFullYear() + 2; y++) {
-          await supabase.from('events').insert({
-            title: `🎂 ${form.name}`,
-            date: `${y}-${mm}-${dd}`,
-            person: 'both',
-            note: form.relation ? `생일 · ${form.relation}` : '생일',
-          })
-        }
+        const evs = buildBirthdayEvents(form.name, `${mm}-${dd}`, form.lunar_birthday || null, form.relation || null)
+        for (const ev of evs) await supabase.from('events').insert(ev)
       }
     } else {
       const { data: inserted } = await supabase.from('birthdays').insert(payload).select().single()
       if (inserted && form.show_in_calendar) {
-        const now = new Date()
-        for (let y = now.getFullYear(); y <= now.getFullYear() + 2; y++) {
-          await supabase.from('events').insert({
-            title: `🎂 ${form.name}`,
-            date: `${y}-${mm}-${dd}`,
-            person: 'both',
-            note: form.relation ? `생일 · ${form.relation}` : '생일',
-          })
-        }
+        const evs = buildBirthdayEvents(form.name, `${mm}-${dd}`, form.lunar_birthday || null, form.relation || null)
+        for (const ev of evs) await supabase.from('events').insert(ev)
       }
     }
     setForm({ name: '', birthday: '', lunar_birthday: '', relation: '', show_in_calendar: false })
@@ -127,22 +127,40 @@ export default function BirthdaysPage() {
     fetchAll()
   }
 
+  const buildBirthdayEvents = (name: string, birthday: string, lunarBirthday: string | null | undefined, relation: string | null | undefined) => {
+    const now = new Date()
+    const events = []
+    for (let y = now.getFullYear(); y <= now.getFullYear() + 2; y++) {
+      let dateStr: string | null = null
+      if (lunarBirthday) {
+        const [lm, ld] = lunarBirthday.split('-')
+        dateStr = lunarToSolarDate(y, lm, ld)
+      }
+      if (!dateStr) {
+        const [m, d] = birthday.split('-')
+        dateStr = `${y}-${m}-${d}`
+      }
+      if (dateStr) {
+        events.push({
+          title: `🎂 ${name}`,
+          date: dateStr,
+          person: 'both' as const,
+          note: lunarBirthday
+            ? `생일 (음력 ${lunarBirthday.replace('-', '월 ')}일)${relation ? ' · ' + relation : ''}`
+            : relation ? `생일 · ${relation}` : '생일',
+        })
+      }
+    }
+    return events
+  }
+
   const handleToggleCalendar = async (bd: Birthday) => {
     const next = !bd.show_in_calendar
     await supabase.from('birthdays').update({ show_in_calendar: next }).eq('id', bd.id)
-    // Sync to events table: remove old birthday events then re-add if toggled on
     await supabase.from('events').delete().eq('title', `🎂 ${bd.name}`).eq('person', 'both')
     if (next) {
-      const now = new Date()
-      for (let y = now.getFullYear(); y <= now.getFullYear() + 2; y++) {
-        const [m, d] = bd.birthday.split('-')
-        await supabase.from('events').insert({
-          title: `🎂 ${bd.name}`,
-          date: `${y}-${m}-${d}`,
-          person: 'both',
-          note: bd.relation ? `생일 · ${bd.relation}` : '생일',
-        })
-      }
+      const evs = buildBirthdayEvents(bd.name, bd.birthday, bd.lunar_birthday, bd.relation)
+      for (const ev of evs) await supabase.from('events').insert(ev)
     }
     setSelected(s => s ? { ...s, show_in_calendar: next } : s)
     fetchAll()

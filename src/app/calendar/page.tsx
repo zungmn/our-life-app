@@ -195,7 +195,7 @@ export default function CalendarPage() {
                             <span className="truncate flex-1">{event.title}</span>
                             {event.time && <span className="flex-shrink-0 ml-0.5 text-[10px] opacity-80">{formatKoreanTime(event.time)}</span>}
                           </>
-                        ) : ' '}
+                        ) : <span className="opacity-0 select-none">l</span>}
                       </div>
                     )
                   })}
