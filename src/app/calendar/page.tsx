@@ -189,7 +189,7 @@ export default function CalendarPage() {
                     const isStart = event.date === dateStr
                     const isEnd = (event.end_date || event.date) === dateStr
                     return (
-                      <div key={event.id} className={`flex items-center text-sm px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
+                      <div key={event.id} className={`flex items-center text-[13px] px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
                         {isStart ? (
                           <>
                             <span className="truncate flex-1">{event.title}</span>

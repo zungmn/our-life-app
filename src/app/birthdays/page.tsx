@@ -237,7 +237,7 @@ export default function BirthdaysPage() {
                     <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{d}</div>
                     {bds.map(b => (
                       <button key={b.id} onClick={() => setSelected(b)} className="w-full text-left">
-                        <div className="text-sm bg-rose-100 text-rose-600 px-1 py-0.5 rounded truncate mb-0.5">🎂 {b.name}</div>
+                        <div className="text-[13px] bg-rose-100 text-rose-600 px-1 py-0.5 rounded truncate mb-0.5">🎂 {b.name}</div>
                       </button>
                     ))}
                   </div>
