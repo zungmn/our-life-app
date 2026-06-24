@@ -117,8 +117,8 @@ export default function JournalPage() {
 
       {/* Detail modal */}
       {selected && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center flex-1">
                 <span className="text-2xl">{moodEmoji(selected.mood || 'good')}</span>
@@ -153,8 +153,8 @@ export default function JournalPage() {
 
       {/* Write modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">{editItem ? '일기 수정' : '감사 일기 쓰기'}</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>

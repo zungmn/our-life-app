@@ -3,10 +3,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, Event } from '@/lib/supabase'
 import { PERSON_COLORS } from '@/lib/constants'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO, isWithinInterval } from 'date-fns'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO, differenceInCalendarDays, addDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, Paperclip } from 'lucide-react'
 import DatePickerInput from '@/components/DatePickerInput'
+import BirthdaysPage from '@/app/birthdays/page'
 
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 const PERSON_ORDER: Record<string, number> = { both: 0, eddy: 1, judy: 2 }
@@ -28,10 +29,11 @@ function formatKoreanTime(time?: string) {
   const m = parseInt(mStr, 10)
   const period = h < 12 ? '오전' : '오후'
   const hourDisplay = h < 12 ? h : (h === 12 ? 12 : h - 12)
-  return `${period} ${hourDisplay}시 ${m}분`
+  return `${period} ${hourDisplay}시 ${String(m).padStart(2, '0')}분`
 }
 
 export default function CalendarPage() {
+  const [tab, setTab] = useState<'events' | 'anniversary'>('events')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [events, setEvents] = useState<Event[]>([])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -40,6 +42,7 @@ export default function CalendarPage() {
   const [form, setForm] = useState({ title: '', end_date: '', time: '', person: 'eddy' as 'eddy' | 'judy' | 'both', note: '' })
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [dragId, setDragId] = useState<string | null>(null)
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
@@ -119,6 +122,20 @@ export default function CalendarPage() {
     setUploading(false)
   }
 
+  // 이벤트를 드래그해서 다른 날짜로 이동
+  const handleEventDrop = async (targetDate: string) => {
+    if (!dragId) return
+    const ev = events.find(e => e.id === dragId)
+    setDragId(null)
+    if (!ev || ev.date === targetDate) return
+    const delta = differenceInCalendarDays(parseISO(targetDate), parseISO(ev.date))
+    const newEnd = ev.end_date ? format(addDays(parseISO(ev.end_date), delta), 'yyyy-MM-dd') : null
+    // 낙관적 업데이트
+    setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, date: targetDate, end_date: newEnd ?? undefined } : e))
+    await supabase.from('events').update({ date: targetDate, end_date: newEnd }).eq('id', ev.id)
+    await fetchEvents()
+  }
+
   const selectedEvents = selectedDate
     ? sortEvents(events.filter(e => {
         if (e.date === selectedDate) return true
@@ -129,7 +146,22 @@ export default function CalendarPage() {
 
   return (
     <div className="p-6 md:p-10 max-w-full">
-      <h2 className="text-2xl font-bold text-slate-800 mb-5">📅 Calendar</h2>
+      <h2 className="text-2xl font-bold text-slate-800 mb-4">📅 Calendar</h2>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-5">
+        {[{ k: 'events', l: '일정' }, { k: 'anniversary', l: '🎂 기념일 및 생일' }].map(t => (
+          <button key={t.k} onClick={() => setTab(t.k as typeof tab)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.k ? 'bg-blue-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'anniversary' && <BirthdaysPage embedded />}
+
+      {tab === 'events' && (
+      <>
       {/* Month header */}
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => setCurrentDate(subMonths(currentDate, 1))}
@@ -171,9 +203,11 @@ export default function CalendarPage() {
               <div
                 key={dateStr}
                 onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                onDragOver={e => { if (dragId) e.preventDefault() }}
+                onDrop={() => handleEventDrop(dateStr)}
                 className={`border-b border-r border-slate-50 min-h-[100px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${
                   isSelected ? 'bg-blue-50' : ''
-                } ${isLastRow ? 'border-b-0' : ''}`}
+                } ${isLastRow ? 'border-b-0' : ''} ${dragId ? 'hover:bg-blue-100' : ''}`}
               >
                 <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${
                   today ? 'bg-blue-500 text-white' :
@@ -188,8 +222,13 @@ export default function CalendarPage() {
                     const pc = PERSON_COLORS[event.person]
                     const isStart = event.date === dateStr
                     const isEnd = (event.end_date || event.date) === dateStr
+                    const isBirthday = event.title.startsWith('🎂')
                     return (
-                      <div key={event.id} className={`flex items-center text-[13px] px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
+                      <div key={event.id}
+                        draggable={!isBirthday}
+                        onDragStart={e => { if (isBirthday) { e.preventDefault(); return } setDragId(event.id) }}
+                        onDragEnd={() => setDragId(null)}
+                        className={`flex items-center text-[13px] px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'} ${!isBirthday ? 'cursor-grab active:cursor-grabbing' : ''}`}>
                         {isStart ? (
                           <>
                             <span className="truncate flex-1">{event.title}</span>
@@ -273,11 +312,13 @@ export default function CalendarPage() {
           )}
         </div>
       )}
+      </>
+      )}
 
       {/* Add/edit event modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => { setShowModal(false); setEditItem(null) }}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">{editItem ? '일정 수정' : '일정 추가'}</h3>
               <button onClick={() => { setShowModal(false); setEditItem(null) }}><X size={20} className="text-slate-400" /></button>

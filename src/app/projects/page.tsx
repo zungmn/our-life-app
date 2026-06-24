@@ -26,6 +26,8 @@ export default function ProjectsPage() {
   const [memos, setMemos] = useState<ProjectMemo[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
   const [memoText, setMemoText] = useState('')
+  const [editMemoId, setEditMemoId] = useState<string | null>(null)
+  const [editMemoText, setEditMemoText] = useState('')
   const [todoText, setTodoText] = useState('')
   const [todoDeadline, setTodoDeadline] = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -122,6 +124,19 @@ export default function ProjectsPage() {
     fetchDetail(selected)
   }
 
+  const handleUpdateMemo = async () => {
+    if (!editMemoId || !editMemoText.trim() || !selected) return
+    await supabase.from('project_memos').update({ content: editMemoText }).eq('id', editMemoId)
+    setEditMemoId(null)
+    setEditMemoText('')
+    fetchDetail(selected)
+  }
+
+  const handleDeleteMemo = async (id: string) => {
+    await supabase.from('project_memos').delete().eq('id', id)
+    if (selected) fetchDetail(selected)
+  }
+
   const handleFileUpload = async (file: File, projectId: string) => {
     setUploadingFile(true)
     const ext = file.name.split('.').pop()
@@ -214,8 +229,8 @@ export default function ProjectsPage() {
 
       {/* Detail modal */}
       {selected && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-slate-100">
               <div className="flex items-start justify-between">
                 <div>
@@ -251,7 +266,8 @@ export default function ProjectsPage() {
               <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
                 {memos.length === 0 && <p className="text-xs text-slate-400">메모가 없어요</p>}
                 {memos.map(memo => (
-                  <div key={memo.id} className="bg-slate-50 rounded-lg p-3">
+                  <div key={memo.id} onDoubleClick={() => { setEditMemoId(memo.id); setEditMemoText(memo.content) }}
+                    className="bg-slate-50 rounded-lg p-3 group">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                         memo.author === 'eddy' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'
@@ -259,8 +275,29 @@ export default function ProjectsPage() {
                       <span className="text-[10px] text-slate-400">
                         {format(new Date(memo.created_at), 'M.d HH:mm')}
                       </span>
+                      {editMemoId !== memo.id && (
+                        <div className="ml-auto flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => { setEditMemoId(memo.id); setEditMemoText(memo.content) }}
+                            className="text-slate-300 hover:text-blue-400">✏️</button>
+                          <button onClick={() => handleDeleteMemo(memo.id)}
+                            className="text-slate-300 hover:text-red-400"><Trash2 size={13} /></button>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap">{memo.content}</p>
+                    {editMemoId === memo.id ? (
+                      <div className="space-y-2">
+                        <textarea className="w-full border border-purple-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400 resize-none"
+                          rows={3} value={editMemoText} onChange={e => setEditMemoText(e.target.value)} autoFocus />
+                        <div className="flex gap-2">
+                          <button onClick={handleUpdateMemo}
+                            className="bg-purple-500 text-white px-3 py-1 rounded-lg text-xs hover:bg-purple-600 transition-colors">저장</button>
+                          <button onClick={() => { setEditMemoId(null); setEditMemoText('') }}
+                            className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs hover:bg-slate-200 transition-colors">취소</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{memo.content}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -343,8 +380,8 @@ export default function ProjectsPage() {
 
       {/* Add modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">Project 추가</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>

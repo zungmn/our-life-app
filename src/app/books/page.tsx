@@ -163,8 +163,8 @@ export default function BooksPage() {
   )
 
   const BookModal = () => (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { setShowModal(false); setEditItem(null) }}>
+      <div className="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-semibold text-lg text-slate-800">{editItem ? '책 수정' : '책 추가'}</h3>
           <button onClick={() => { setShowModal(false); setEditItem(null) }}><X size={22} className="text-slate-400" /></button>
@@ -433,8 +433,8 @@ export default function BooksPage() {
 
       {/* Detail modal */}
       {selected && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-5">
               <div className="flex gap-4 mb-4">
                 <BookCover book={selected} size="lg" />

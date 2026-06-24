@@ -34,7 +34,7 @@ function nextBirthday(birthday: string) {
   return { days: diff, month: m, day: d }
 }
 
-export default function BirthdaysPage() {
+export default function BirthdaysPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [birthdays, setBirthdays] = useState<Birthday[]>([])
   const [gifts, setGifts] = useState<Record<string, BirthdayGift[]>>({})
   const [selected, setSelected] = useState<Birthday | null>(null)
@@ -42,6 +42,7 @@ export default function BirthdaysPage() {
   const [showGiftModal, setShowGiftModal] = useState(false)
   const [form, setForm] = useState({ name: '', birthday: '', lunar_birthday: '', relation: '', show_in_calendar: false })
   const [editItem, setEditItem] = useState<Birthday | null>(null)
+  const [editGift, setEditGift] = useState<BirthdayGift | null>(null)
   const [giftForm, setGiftForm] = useState({ year: new Date().getFullYear().toString(), direction: 'received' as 'received' | 'given', gift: '' })
   const [filterMonth, setFilterMonth] = useState(0)
   const [viewTab, setViewTab] = useState<'list' | 'calendar'>('calendar')
@@ -109,15 +110,36 @@ export default function BirthdaysPage() {
     fetchAll()
   }
 
+  const openAddGift = () => {
+    setEditGift(null)
+    setGiftForm({ year: new Date().getFullYear().toString(), direction: 'received', gift: '' })
+    setShowGiftModal(true)
+  }
+
+  const openEditGift = (g: BirthdayGift) => {
+    setEditGift(g)
+    setGiftForm({ year: String(g.year), direction: g.direction, gift: g.gift })
+    setShowGiftModal(true)
+  }
+
   const handleAddGift = async () => {
     if (!giftForm.gift.trim() || !selected) return
-    await supabase.from('birthday_gifts').insert({
-      birthday_id: selected.id,
-      year: parseInt(giftForm.year),
-      direction: giftForm.direction,
-      gift: giftForm.gift,
-    })
+    if (editGift) {
+      await supabase.from('birthday_gifts').update({
+        year: parseInt(giftForm.year),
+        direction: giftForm.direction,
+        gift: giftForm.gift,
+      }).eq('id', editGift.id)
+    } else {
+      await supabase.from('birthday_gifts').insert({
+        birthday_id: selected.id,
+        year: parseInt(giftForm.year),
+        direction: giftForm.direction,
+        gift: giftForm.gift,
+      })
+    }
     setGiftForm({ year: new Date().getFullYear().toString(), direction: 'received', gift: '' })
+    setEditGift(null)
     setShowGiftModal(false)
     fetchAll()
   }
@@ -180,13 +202,13 @@ export default function BirthdaysPage() {
   const selectedGifts = selected ? (gifts[selected.id] || []).sort((a, b) => b.year - a.year) : []
 
   return (
-    <div className="p-6 md:p-10 max-w-full">
+    <div className={embedded ? 'max-w-full' : 'p-6 md:p-10 max-w-full'}>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">🎁 생일선물</h2>
-          <p className="text-base font-semibold text-slate-500 mt-0.5">받은 선물, 준 선물 기록</p>
+          {!embedded && <h2 className="text-2xl font-bold text-slate-800">🎂 기념일 및 생일</h2>}
+          <p className="text-base font-semibold text-slate-500 mt-0.5">생일·기념일과 받은 선물, 준 선물 기록</p>
         </div>
-        <button onClick={() => setShowModal(true)}
+        <button onClick={() => { setEditItem(null); setForm({ name: '', birthday: '', lunar_birthday: '', relation: '', show_in_calendar: false }); setShowModal(true) }}
           className="flex items-center gap-1 bg-rose-500 text-white px-4 py-2 rounded-lg text-[0.9rem] hover:bg-rose-600 transition-colors">
           <Plus size={16} /> 추가
         </button>
@@ -308,8 +330,8 @@ export default function BirthdaysPage() {
 
       {/* Detail modal */}
       {selected && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-slate-100">
               <div className="flex items-start justify-between">
                 <div>
@@ -329,7 +351,7 @@ export default function BirthdaysPage() {
             <div className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-lg font-semibold text-slate-700">선물 기록</h4>
-                <button onClick={() => setShowGiftModal(true)}
+                <button onClick={openAddGift}
                   className="text-base bg-rose-500 text-white px-3 py-1.5 rounded-lg hover:bg-rose-600 transition-colors">
                   + 추가
                 </button>
@@ -340,7 +362,8 @@ export default function BirthdaysPage() {
               ) : (
                 <div className="space-y-2">
                   {selectedGifts.map(g => (
-                    <div key={g.id} className="flex items-center gap-2 group">
+                    <div key={g.id} onDoubleClick={() => openEditGift(g)}
+                      className="flex items-center gap-2 group cursor-pointer">
                       <span className={`text-sm px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
                         g.direction === 'received' ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'
                       }`}>
@@ -348,6 +371,9 @@ export default function BirthdaysPage() {
                       </span>
                       <span className="text-base text-slate-400 flex-shrink-0">{g.year}년</span>
                       <p className="text-lg text-slate-700 flex-1">{g.gift}</p>
+                      <button onClick={() => openEditGift(g)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-blue-400 transition-all">
+                        ✏️
+                      </button>
                       <button onClick={() => handleDeleteGift(g.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all">
                         <Trash2 size={18} />
                       </button>
@@ -385,11 +411,11 @@ export default function BirthdaysPage() {
 
       {/* Gift add modal */}
       {showGiftModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-[60] p-4" onClick={() => { setShowGiftModal(false); setEditGift(null) }}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800 text-xl">선물 기록 추가</h3>
-              <button onClick={() => setShowGiftModal(false)}><X size={20} className="text-slate-400" /></button>
+              <h3 className="font-semibold text-slate-800 text-xl">{editGift ? '선물 기록 수정' : '선물 기록 추가'}</h3>
+              <button onClick={() => { setShowGiftModal(false); setEditGift(null) }}><X size={20} className="text-slate-400" /></button>
             </div>
             <div className="space-y-3">
               <div className="flex gap-2">
@@ -424,8 +450,8 @@ export default function BirthdaysPage() {
 
       {/* Add birthday modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => { setShowModal(false); setEditItem(null) }}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800 text-xl">{editItem ? '생일 수정' : '생일 추가'}</h3>
               <button onClick={() => { setShowModal(false); setEditItem(null) }}><X size={20} className="text-slate-400" /></button>

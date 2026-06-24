@@ -145,8 +145,8 @@ export default function LifeNotesPage() {
 
       {/* Detail modal */}
       {selected && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <div className={`text-[10px] px-2 py-0.5 rounded-full inline-block mb-1 ${typeInfo[selected.type].bg} ${typeInfo[selected.type].color}`}>
@@ -176,8 +176,8 @@ export default function LifeNotesPage() {
 
       {/* Add modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">{editItem ? '기록 수정' : '인생기록 추가'}</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, BookOpen, PiggyBank, NotebookPen, Star, Home, CheckSquare, FolderKanban, Archive, Gift } from 'lucide-react'
+import { CalendarDays, BookOpen, PiggyBank, NotebookPen, Star, Home, CheckSquare, FolderKanban, Archive } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 const sharedItems = [
@@ -18,7 +18,6 @@ const eddyOnlyItems = [
   { href: '/journal', icon: NotebookPen, label: '일기' },
   { href: '/life-notes', icon: Star, label: '기록' },
   { href: '/archive', icon: Archive, label: '자료실' },
-  { href: '/birthdays', icon: Gift, label: '생일선물' },
 ]
 
 export default function Navigation() {

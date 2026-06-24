@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, Event as CalendarEvent, Todo, Project } from '@/lib/supabase'
 import { PERSON_COLORS } from '@/lib/constants'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, differenceInCalendarDays, parseISO } from 'date-fns'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, differenceInCalendarDays, parseISO, addDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, X, Trash2, Check, ChevronLeft, ChevronRight, Paperclip } from 'lucide-react'
 import Link from 'next/link'
@@ -30,7 +30,7 @@ function formatKoreanTime(time?: string) {
   const m = parseInt(mStr, 10)
   const period = h < 12 ? '오전' : '오후'
   const hourDisplay = h < 12 ? h : (h === 12 ? 12 : h - 12)
-  return `${period} ${hourDisplay}시 ${m}분`
+  return `${period} ${hourDisplay}시 ${String(m).padStart(2, '0')}분`
 }
 
 export default function Home() {
@@ -41,6 +41,7 @@ export default function Home() {
   const [calDate, setCalDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [uploadingEventFile, setUploadingEventFile] = useState(false)
+  const [dragId, setDragId] = useState<string | null>(null)
 
   // Add modals
   const [showTodoModal, setShowTodoModal] = useState(false)
@@ -222,6 +223,19 @@ export default function Home() {
     setUploadingEventFile(false)
   }
 
+  // 이벤트를 드래그해서 다른 날짜로 이동
+  const handleEventDrop = async (targetDate: string) => {
+    if (!dragId) return
+    const ev = events.find(e => e.id === dragId)
+    setDragId(null)
+    if (!ev || ev.date === targetDate) return
+    const delta = differenceInCalendarDays(parseISO(targetDate), parseISO(ev.date))
+    const newEnd = ev.end_date ? format(addDays(parseISO(ev.end_date), delta), 'yyyy-MM-dd') : null
+    setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, date: targetDate, end_date: newEnd ?? undefined } : e))
+    await supabase.from('events').update({ date: targetDate, end_date: newEnd }).eq('id', ev.id)
+    await fetchAll()
+  }
+
   const monthStart = startOfMonth(calDate)
   const monthEnd = endOfMonth(calDate)
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
@@ -247,13 +261,16 @@ export default function Home() {
     const isEnd = (event.end_date || event.date) === dateStr
     return (
       <div key={event.id}
-        className={`flex items-center text-sm px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'}`}>
+        draggable={!isBirthday}
+        onDragStart={e => { if (isBirthday) { e.preventDefault(); return } setDragId(event.id) }}
+        onDragEnd={() => setDragId(null)}
+        className={`flex items-center text-[13px] px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'} ${!isBirthday ? 'cursor-grab active:cursor-grabbing' : ''}`}>
         {isStart ? (
           <>
             <span className="truncate flex-1">{event.title}</span>
-            {event.time && <span className="flex-shrink-0 ml-0.5 opacity-80">{formatKoreanTime(event.time)}</span>}
+            {event.time && <span className="flex-shrink-0 ml-0.5 text-[10px] opacity-80">{formatKoreanTime(event.time)}</span>}
           </>
-        ) : ' '}
+        ) : <span className="opacity-0 select-none">l</span>}
       </div>
     )
   }
@@ -380,13 +397,15 @@ export default function Home() {
             const isLastRow = i >= days.length - 7
             return (
               <div key={dateStr} onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                className={`border-b border-r border-slate-50 min-h-[80px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${isLastRow ? 'border-b-0' : ''}`}>
+                onDragOver={e => { if (dragId) e.preventDefault() }}
+                onDrop={() => handleEventDrop(dateStr)}
+                className={`border-b border-r border-slate-50 min-h-[80px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${isLastRow ? 'border-b-0' : ''} ${dragId ? 'hover:bg-blue-100' : ''}`}>
                 <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${todayMark ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>
                   {format(day, 'd')}
                 </div>
                 <div className="space-y-0.5">
                   {de.slice(0, 5).map(event => renderCellEvent(event, dateStr))}
-                  {de.length > 5 && <div className="text-sm text-slate-400 px-0.5">+{de.length - 5}</div>}
+                  {de.length > 5 && <div className="text-xs text-slate-400 px-0.5">+{de.length - 5}</div>}
                 </div>
               </div>
             )
@@ -449,8 +468,8 @@ export default function Home() {
 
       {/* Todo 모달 (추가 / 수정) */}
       {showTodoModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowTodoModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">{editTodo ? 'Todo 수정' : 'Todo 추가'}</h3>
               <button onClick={() => setShowTodoModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -482,8 +501,8 @@ export default function Home() {
 
       {/* Project 모달 (추가 / 수정) */}
       {showProjectModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowProjectModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">{editProject ? 'Project 수정' : 'Project 추가'}</h3>
               <button onClick={() => setShowProjectModal(false)}><X size={20} className="text-slate-400" /></button>
@@ -523,8 +542,8 @@ export default function Home() {
 
       {/* 일정 모달 (추가 / 수정) */}
       {showEventModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowEventModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800">{editEvent ? '일정 수정' : '일정 추가'}</h3>
               <button onClick={() => setShowEventModal(false)}><X size={20} className="text-slate-400" /></button>
