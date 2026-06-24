@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { supabase, Transaction } from '@/lib/supabase'
+import { supabase, Transaction, ClinicFinance } from '@/lib/supabase'
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/lib/constants'
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, eachDayOfInterval, getDay, isToday, startOfYear, endOfYear, eachMonthOfInterval } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -27,12 +27,17 @@ export default function ExpensesPage() {
   const [yearTransactions, setYearTransactions] = useState<Transaction[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState<Transaction | null>(null)
-  const [tab, setTab] = useState<'calendar' | 'list' | 'stats'>('calendar')
+  const [tab, setTab] = useState<'calendar' | 'list' | 'stats' | 'clinic'>('calendar')
   const [listTab, setListTab] = useState<'all' | 'expense' | 'income'>('all')
   const [form, setForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), type: 'expense' as 'income' | 'expense', category: '직원', amount: '', memo: '' })
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // 치과 가계부 (clinic_finance)
+  const [clinicTx, setClinicTx] = useState<ClinicFinance[]>([])
+  const [clinicYear, setClinicYear] = useState(new Date().getFullYear())
+  const [clinicMonth, setClinicMonth] = useState(0) // 0 = 연간 전체
 
   useEffect(() => {
     setViewer((localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy')
@@ -61,6 +66,16 @@ export default function ExpensesPage() {
   }, [currentDate, viewer])
 
   useEffect(() => { fetchTransactions() }, [fetchTransactions])
+
+  // 치과 가계부 데이터 (선택 연도 전체) 로드
+  const fetchClinic = useCallback(async () => {
+    const { data } = await supabase.from('clinic_finance').select('*')
+      .gte('date', `${clinicYear}-01-01`).lte('date', `${clinicYear}-12-31`)
+      .order('date', { ascending: false })
+    setClinicTx(data || [])
+  }, [clinicYear])
+
+  useEffect(() => { if (tab === 'clinic') fetchClinic() }, [tab, fetchClinic])
 
   const openAdd = () => {
     setEditItem(null)
@@ -99,6 +114,41 @@ export default function ExpensesPage() {
     const inc = mts.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
     const exp = mts.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
     return { month: format(m, 'M월'), income: inc, expense: exp, savings: inc - exp }
+  })
+
+  // ===== 치과 가계부 계산 =====
+  const CLINIC_COLORS = ['#6366F1', '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#EC4899', '#8B5CF6', '#14B8A6', '#F97316', '#84CC16', '#06B6D4', '#A855F7']
+  const clinicYears = [2024, 2025, 2026]
+  // 선택 월(또는 연간)에 해당하는 거래
+  const clinicScoped = clinicMonth === 0
+    ? clinicTx
+    : clinicTx.filter(t => parseInt(t.date.slice(5, 7), 10) === clinicMonth)
+  const clinicHospital = clinicScoped.filter(t => t.scope === 'hospital' && !t.is_saving)
+  const clinicPersonal = clinicScoped.filter(t => t.scope === 'personal' && !t.is_saving)
+  const clinicSaving = clinicScoped.filter(t => t.is_saving)
+  const sumAmt = (arr: ClinicFinance[]) => arr.reduce((s, t) => s + t.amount, 0)
+  const clinicHospitalTotal = sumAmt(clinicHospital)
+  const clinicPersonalTotal = sumAmt(clinicPersonal)
+  const clinicSavingTotal = sumAmt(clinicSaving)
+
+  // 병원 경비 카테고리별 (금액 + 비율)
+  const clinicCatTotals = (() => {
+    const map: Record<string, number> = {}
+    for (const t of clinicHospital) { const c = t.category || '기타'; map[c] = (map[c] || 0) + t.amount }
+    const arr = Object.entries(map).map(([name, value], i) => ({ name, value, pct: clinicHospitalTotal ? Math.round(value / clinicHospitalTotal * 1000) / 10 : 0, color: CLINIC_COLORS[i % CLINIC_COLORS.length] }))
+    return arr.sort((a, b) => b.value - a.value)
+  })()
+
+  // 월별 병원 경비 추이 (선택 연도)
+  const clinicMonthly = Array.from({ length: 12 }, (_, i) => {
+    const mm = i + 1
+    const rows = clinicTx.filter(t => parseInt(t.date.slice(5, 7), 10) === mm)
+    return {
+      month: `${mm}월`,
+      hospital: sumAmt(rows.filter(t => t.scope === 'hospital' && !t.is_saving)),
+      personal: sumAmt(rows.filter(t => t.scope === 'personal' && !t.is_saving)),
+      saving: sumAmt(rows.filter(t => t.is_saving)),
+    }
   })
 
   const handleSave = async () => {
@@ -197,6 +247,8 @@ export default function ExpensesPage() {
         </div>
       </div>
 
+      {tab !== 'clinic' && (
+      <>
       {/* Month nav */}
       <div className="flex items-center justify-between mb-4">
         <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-slate-100 rounded-lg"><ChevronLeft size={20} className="text-slate-600" /></button>
@@ -221,17 +273,20 @@ export default function ExpensesPage() {
           </div>
         ))}
       </div>
+      </>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex gap-1">
-          {[{ k: 'calendar', l: '캘린더' }, { k: 'list', l: '목록' }, { k: 'stats', l: '통계' }].map(t => (
+          {[{ k: 'calendar', l: '캘린더' }, { k: 'list', l: '목록' }, { k: 'stats', l: '통계' }, { k: 'clinic', l: '🦷 치과' }].map(t => (
             <button key={t.k} onClick={() => setTab(t.k as typeof tab)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === t.k ? 'bg-blue-500 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
               {t.l}
             </button>
           ))}
         </div>
+        {tab !== 'clinic' && (
         <div className="flex items-center gap-2">
           <label className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg cursor-pointer border border-slate-200 hover:bg-slate-50 transition-colors ${importing ? 'opacity-50' : ''}`}>
             <Upload size={12} /> CSV
@@ -242,6 +297,7 @@ export default function ExpensesPage() {
             <Plus size={14} /> 추가
           </button>
         </div>
+        )}
       </div>
 
       {/* List view */}
@@ -398,6 +454,132 @@ export default function ExpensesPage() {
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 치과 가계부 view */}
+      {tab === 'clinic' && (
+        <div className="space-y-4">
+          {/* 연도 / 월 선택 */}
+          <div className="card p-3 space-y-2">
+            <div className="flex gap-1">
+              {clinicYears.map(y => (
+                <button key={y} onClick={() => setClinicYear(y)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${clinicYear === y ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
+                  {y}년
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1 flex-wrap">
+              <button onClick={() => setClinicMonth(0)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${clinicMonth === 0 ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:bg-slate-100'}`}>연간</button>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                <button key={m} onClick={() => setClinicMonth(m)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${clinicMonth === m ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:bg-slate-100'}`}>{m}월</button>
+              ))}
+            </div>
+          </div>
+
+          {clinicTx.length === 0 ? (
+            <div className="card p-8 text-center">
+              <p className="text-sm text-slate-500 mb-3">치과 가계부 데이터가 없습니다.</p>
+              <p className="text-xs text-slate-400 mb-4">노션에서 가져온 1,376건의 거래를 불러오려면 아래 버튼을 누르세요.<br/>(DB 테이블을 먼저 만들어야 합니다 — 설명 참고)</p>
+              <button onClick={async () => {
+                if (!confirm('노션 치과 가계부 데이터를 불러올까요?')) return
+                const res = await fetch('/api/import-clinic-finance', { method: 'POST' })
+                const json = await res.json()
+                alert(json.message || json.error || '완료')
+                fetchClinic()
+              }} className="bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors">
+                노션 데이터 불러오기
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* 요약 카드 */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="card p-3">
+                  <p className="text-xs text-slate-400 mb-1">병원 경비</p>
+                  <p className="text-base font-bold text-red-500">{fmt(clinicHospitalTotal)}</p>
+                  <p className="text-[10px] text-slate-300 mt-0.5">{clinicHospital.length}건</p>
+                </div>
+                <div className="card p-3">
+                  <p className="text-xs text-slate-400 mb-1">생활비</p>
+                  <p className="text-base font-bold text-orange-500">{fmt(clinicPersonalTotal)}</p>
+                  <p className="text-[10px] text-slate-300 mt-0.5">{clinicPersonal.length}건</p>
+                </div>
+                <div className="card p-3">
+                  <p className="text-xs text-slate-400 mb-1">저축</p>
+                  <p className="text-base font-bold text-indigo-600">{fmt(clinicSavingTotal)}</p>
+                  <p className="text-[10px] text-slate-300 mt-0.5">{clinicSaving.length}건</p>
+                </div>
+              </div>
+
+              {/* 병원 경비 카테고리별 (금액 + 비율) */}
+              <div className="card p-4">
+                <h3 className="font-semibold text-slate-800 mb-1 text-sm">🦷 병원 경비 분류별 {clinicMonth === 0 ? `(${clinicYear}년 전체)` : `(${clinicYear}년 ${clinicMonth}월)`}</h3>
+                <p className="text-[11px] text-slate-400 mb-3">비율은 병원 경비 합계 대비 (매출 대비 비율은 매출 연동 후 제공)</p>
+                {clinicCatTotals.length === 0 ? (
+                  <p className="text-sm text-slate-400 py-4 text-center">해당 기간 병원 경비 내역이 없어요</p>
+                ) : (
+                  <div className="space-y-2">
+                    {clinicCatTotals.map(c => (
+                      <div key={c.name} className="flex items-center gap-2">
+                        <span className="text-xs text-slate-600 w-20 flex-shrink-0 truncate">{c.name}</span>
+                        <div className="flex-1 bg-slate-100 rounded-full h-2.5">
+                          <div className="h-2.5 rounded-full" style={{ width: `${c.pct}%`, background: c.color }} />
+                        </div>
+                        <span className="text-xs font-medium text-slate-700 w-24 text-right">{fmt(c.value)}</span>
+                        <span className="text-[11px] text-slate-400 w-12 text-right">{c.pct}%</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 월별 추이 (선택 연도) */}
+              <div className="card p-4">
+                <h3 className="font-semibold text-slate-800 mb-3 text-sm">📅 {clinicYear}년 월별 지출 추이</h3>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={clinicMonthly} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
+                    onClick={(e) => { const i = e?.activeTooltipIndex; if (typeof i === 'number') setClinicMonth(i + 1) }}>
+                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${Math.round(v / 10000)}만`} />
+                    <Tooltip formatter={(v, n) => [`${Number(v).toLocaleString()}원`, n === 'hospital' ? '병원 경비' : n === 'personal' ? '생활비' : '저축']} />
+                    <Legend formatter={v => v === 'hospital' ? '병원 경비' : v === 'personal' ? '생활비' : '저축'} />
+                    <Bar dataKey="hospital" fill="#EF4444" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="personal" fill="#F59E0B" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="saving" fill="#6366F1" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <p className="text-[11px] text-slate-400 mt-1 text-center">막대를 클릭하면 해당 월 상세를 볼 수 있어요</p>
+              </div>
+
+              {/* 상세 내역 (선택 기간) */}
+              <div className="card overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <h3 className="font-semibold text-slate-800 text-sm">상세 내역 ({clinicScoped.length}건)</h3>
+                </div>
+                <div className="divide-y divide-slate-50 max-h-96 overflow-y-auto">
+                  {clinicScoped.slice(0, 200).map(t => (
+                    <div key={t.id} className="flex items-center gap-3 px-4 py-2.5">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${t.scope === 'hospital' ? 'bg-red-50 text-red-500' : t.scope === 'personal' ? 'bg-orange-50 text-orange-500' : 'bg-slate-100 text-slate-500'}`}>
+                        {t.scope === 'hospital' ? '병원' : t.scope === 'personal' ? '생활' : '-'}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-800 truncate">{t.name || t.category}</p>
+                        <p className="text-xs text-slate-400">{t.date} · {t.category}</p>
+                      </div>
+                      <p className={`text-sm font-semibold ${t.is_saving ? 'text-indigo-600' : 'text-red-500'}`}>
+                        {t.amount.toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                  {clinicScoped.length > 200 && <p className="text-xs text-slate-400 text-center py-3">+{clinicScoped.length - 200}건 더 있음</p>}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

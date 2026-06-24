@@ -30,6 +30,18 @@ export type Transaction = {
   created_at: string
 }
 
+export type ClinicFinance = {
+  id: string
+  date: string
+  amount: number
+  type: 'income' | 'expense'
+  scope: 'hospital' | 'personal' | null
+  category?: string
+  name?: string
+  is_saving: boolean
+  created_at: string
+}
+
 export type Book = {
   id: string
   title: string

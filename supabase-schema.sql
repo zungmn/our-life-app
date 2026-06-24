@@ -67,3 +67,23 @@ CREATE POLICY "Public access" ON transactions FOR ALL USING (true) WITH CHECK (t
 CREATE POLICY "Public access" ON books FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public access" ON journal_entries FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public access" ON life_notes FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================
+-- 치과 가계부 (clinic finance) — Notion 가져오기
+-- ============================================
+CREATE TABLE IF NOT EXISTS clinic_finance (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  date DATE NOT NULL,
+  amount BIGINT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+  scope TEXT CHECK (scope IN ('hospital', 'personal')),  -- 병원 경비 / 생활비
+  category TEXT,                                          -- 분류 (기공료, 재료비, 직원, 마케팅 ...)
+  name TEXT,                                              -- 항목명 / 메모
+  is_saving BOOLEAN DEFAULT FALSE,                        -- 저축 여부
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_clinic_finance_date ON clinic_finance(date);
+CREATE INDEX IF NOT EXISTS idx_clinic_finance_scope ON clinic_finance(scope);
+
+ALTER TABLE clinic_finance ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public access" ON clinic_finance FOR ALL USING (true) WITH CHECK (true);
