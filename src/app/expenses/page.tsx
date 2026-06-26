@@ -19,6 +19,36 @@ const toComma = (s: string) => {
 }
 const fmt = (n: number) => n.toLocaleString() + '원'
 
+// 카테고리 → 그룹(병원 경비/생활비)
+const catGroup = (cat?: string) => EXPENSE_CATEGORIES.find(c => c.value === cat)?.group
+
+// 캘린더에 표시할 통합 항목 (개인 거래 + 치과 가계부)
+type CalItem = {
+  id: string; source: 'tx' | 'clinic'; date: string; amount: number
+  type: 'income' | 'expense'; memo: string; category: string
+  scope: 'hospital' | 'personal' | null; is_saving: boolean
+  tx?: Transaction; cf?: ClinicFinance
+}
+const txToItem = (t: Transaction): CalItem => {
+  const g = catGroup(t.category)
+  return { id: t.id, source: 'tx', date: t.date, amount: t.amount, type: t.type,
+    memo: t.memo || t.category, category: t.category,
+    scope: g === '생활비' ? 'personal' : g === '병원 경비' ? 'hospital' : null,
+    is_saving: t.category === '저축', tx: t }
+}
+const cfToItem = (t: ClinicFinance): CalItem => ({
+  id: t.id, source: 'clinic', date: t.date, amount: t.amount, type: t.type,
+  memo: t.name || t.category || '', category: t.category || '기타',
+  scope: t.scope, is_saving: t.is_saving, cf: t,
+})
+const itemColor = (it: CalItem) => {
+  if (it.is_saving) return 'bg-indigo-50 text-indigo-600'
+  if (it.type === 'income') return 'bg-green-50 text-green-600'
+  if (it.scope === 'personal') return 'bg-amber-50 text-amber-600'
+  if (it.scope === 'hospital') return 'bg-rose-50 text-rose-500'
+  return 'bg-red-50 text-red-600'
+}
+
 export default function ExpensesPage() {
   const [viewer, setViewer] = useState<'eddy' | 'judy'>('eddy')
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -27,9 +57,10 @@ export default function ExpensesPage() {
   const [yearTransactions, setYearTransactions] = useState<Transaction[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState<Transaction | null>(null)
+  const [editClinicItem, setEditClinicItem] = useState<ClinicFinance | null>(null)
   const [tab, setTab] = useState<'calendar' | 'list' | 'stats' | 'clinic'>('calendar')
   const [listTab, setListTab] = useState<'all' | 'expense' | 'income'>('all')
-  const [form, setForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), type: 'expense' as 'income' | 'expense', category: '직원', amount: '', memo: '' })
+  const [form, setForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), type: 'expense' as 'income' | 'expense', category: '직원', amount: '', memo: '', scope: 'hospital' as 'hospital' | 'personal', is_saving: false })
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -90,12 +121,20 @@ export default function ExpensesPage() {
 
   const openAdd = () => {
     setEditItem(null)
-    setForm({ date: format(new Date(), 'yyyy-MM-dd'), type: 'expense', category: '직원', amount: '', memo: '' })
+    setEditClinicItem(null)
+    setForm({ date: format(new Date(), 'yyyy-MM-dd'), type: 'expense', category: '직원', amount: '', memo: '', scope: 'hospital', is_saving: false })
     setShowModal(true)
   }
   const openEdit = (t: Transaction) => {
     setEditItem(t)
-    setForm({ date: t.date, type: t.type, category: t.category, amount: t.amount.toLocaleString(), memo: t.memo || '' })
+    setEditClinicItem(null)
+    setForm({ date: t.date, type: t.type, category: t.category, amount: t.amount.toLocaleString(), memo: t.memo || '', scope: 'hospital', is_saving: false })
+    setShowModal(true)
+  }
+  const openEditClinic = (t: ClinicFinance) => {
+    setEditClinicItem(t)
+    setEditItem(null)
+    setForm({ date: t.date, type: t.type, category: t.category || '기타', amount: t.amount.toLocaleString(), memo: t.name || '', scope: (t.scope || 'hospital'), is_saving: t.is_saving })
     setShowModal(true)
   }
 
@@ -115,6 +154,12 @@ export default function ExpensesPage() {
   }).filter(d => d.value > 0).sort((a, b) => b.value - a.value)
 
   const displayed = listTab === 'all' ? transactions : transactions.filter(t => t.type === listTab)
+
+  // 캘린더 통합 항목 (개인 거래 + 치과) 및 이번 달 합계
+  const monthItems: CalItem[] = [...transactions.map(txToItem), ...clinicCal.map(cfToItem)]
+  const calExpenseTotal = monthItems.filter(i => i.type === 'expense' && !i.is_saving).reduce((s, i) => s + i.amount, 0)
+  const calSavingTotal = monthItems.filter(i => i.is_saving).reduce((s, i) => s + i.amount, 0)
+  const calIncomeTotal = monthItems.filter(i => i.type === 'income' && !i.is_saving).reduce((s, i) => s + i.amount, 0)
 
   // Yearly monthly data for chart
   const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) })
@@ -166,7 +211,14 @@ export default function ExpensesPage() {
     if (!form.amount || !form.category) return
     setLoading(true)
     const amount = toNum(form.amount)
-    if (editItem) {
+    if (editClinicItem) {
+      // 치과 가계부 항목 수정
+      const { error } = await supabase.from('clinic_finance').update({
+        date: form.date, amount, type: form.type, scope: form.scope,
+        category: form.category, name: form.memo || null, is_saving: form.is_saving,
+      }).eq('id', editClinicItem.id)
+      if (error) { alert('수정 실패: ' + error.message); setLoading(false); return }
+    } else if (editItem) {
       const { error } = await supabase.from('transactions').update({ date: form.date, type: form.type, category: form.category, amount, memo: form.memo || null }).eq('id', editItem.id)
       if (error) { alert('수정 실패: ' + error.message); setLoading(false); return }
     } else {
@@ -175,11 +227,17 @@ export default function ExpensesPage() {
     }
     await fetchTransactions()
     setShowModal(false)
+    setEditItem(null)
+    setEditClinicItem(null)
     setLoading(false)
   }
 
   const handleDelete = async (id: string) => {
     await supabase.from('transactions').delete().eq('id', id)
+    await fetchTransactions()
+  }
+  const handleDeleteClinic = async (id: string) => {
+    await supabase.from('clinic_finance').delete().eq('id', id)
     await fetchTransactions()
   }
 
@@ -350,6 +408,18 @@ export default function ExpensesPage() {
 
       {/* Calendar view */}
       {tab === 'calendar' && (
+        <>
+        {/* 이번 달 합계 */}
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="card p-3">
+            <p className="text-xs text-slate-400 mb-0.5">이번 달 지출 합계</p>
+            <p className="text-base font-bold text-red-500">{fmt(calExpenseTotal)}</p>
+          </div>
+          <div className="card p-3">
+            <p className="text-xs text-slate-400 mb-0.5">이번 달 저축 합계</p>
+            <p className="text-base font-bold text-indigo-600">{fmt(calSavingTotal)}</p>
+          </div>
+        </div>
         <div className="card overflow-hidden">
           <div className="grid grid-cols-7 border-b border-slate-100">
             {WEEKDAYS.map((d, i) => (
@@ -360,27 +430,21 @@ export default function ExpensesPage() {
             {Array(startPad).fill(null).map((_, i) => <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[110px]" />)}
             {days.map((day, i) => {
               const ds = format(day, 'yyyy-MM-dd')
-              const dayTs = transactions.filter(t => t.date === ds)
-              const dayClinic = clinicCal.filter(t => t.date === ds)
+              const items = monthItems.filter(it => it.date === ds)
               const dow = getDay(day)
               const isLastRow = i >= days.length - 7
-              const shown = dayTs.slice(0, 5)
-              const clinicShown = dayClinic.slice(0, Math.max(0, 6 - shown.length))
-              const hiddenCount = (dayTs.length - shown.length) + (dayClinic.length - clinicShown.length)
+              const shown = items.slice(0, 6)
+              const hiddenCount = items.length - shown.length
               return (
                 <div key={ds} className={`border-b border-r border-slate-50 min-h-[110px] p-1 ${isLastRow ? 'border-b-0' : ''}`}>
                   <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday(day) ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
                   <div className="space-y-0.5">
-                    {shown.map(t => (
-                      <div key={t.id} onDoubleClick={() => openEdit(t)}
-                        className={`text-[11px] px-1 py-0.5 rounded truncate cursor-pointer ${t.type === 'expense' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                        {t.category} {t.type === 'expense' ? '-' : '+'}{t.amount.toLocaleString()}
-                      </div>
-                    ))}
-                    {clinicShown.map(t => (
-                      <div key={t.id} title={`[치과] ${t.name || t.category} · ${t.category}`}
-                        className={`text-[11px] px-1 py-0.5 rounded truncate ${t.is_saving ? 'bg-indigo-50 text-indigo-600' : t.scope === 'hospital' ? 'bg-rose-50 text-rose-500' : 'bg-amber-50 text-amber-600'}`}>
-                        🦷 {t.category} -{t.amount.toLocaleString()}
+                    {shown.map(it => (
+                      <div key={it.id} onDoubleClick={() => it.source === 'tx' ? openEdit(it.tx!) : openEditClinic(it.cf!)}
+                        title={`${it.memo} · ${it.category}`}
+                        className={`flex items-center gap-1 text-[11px] px-1 py-0.5 rounded cursor-pointer ${itemColor(it)}`}>
+                        <span className="truncate flex-1">{it.memo}</span>
+                        <span className="flex-shrink-0">{it.type === 'income' ? '+' : '-'}{it.amount.toLocaleString()}원</span>
                       </div>
                     ))}
                     {hiddenCount > 0 && <div className="text-[10px] text-slate-400 px-1">+{hiddenCount}</div>}
@@ -390,6 +454,7 @@ export default function ExpensesPage() {
             })}
           </div>
         </div>
+        </>
       )}
 
       {/* Stats view */}
@@ -609,13 +674,13 @@ export default function ExpensesPage() {
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
           <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800">{editItem ? '내역 수정' : '내역 추가'}</h3>
+              <h3 className="font-semibold text-slate-800">{editClinicItem ? '내역 수정' : editItem ? '내역 수정' : '내역 추가'}</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
             </div>
             <div className="space-y-3">
               <div className="flex gap-2">
                 {(['expense', 'income'] as const).map(type => (
-                  <button key={type} onClick={() => setForm(f => ({ ...f, type, category: type === 'expense' ? '직원' : '진료 수입' }))}
+                  <button key={type} onClick={() => setForm(f => ({ ...f, type, category: editClinicItem ? f.category : (type === 'expense' ? '직원' : '진료 수입') }))}
                     className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${form.type === type ? (type === 'expense' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200') : 'border-slate-200 text-slate-500'}`}>
                     {type === 'expense' ? '지출' : '수입'}
                   </button>
@@ -625,18 +690,47 @@ export default function ExpensesPage() {
                 <label className="text-xs text-slate-500 mb-1 block">날짜</label>
                 <DateInput value={form.date} onChange={v => setForm(f => ({ ...f, date: v }))} className="w-full" />
               </div>
-              <div>
-                <label className="text-xs text-slate-500 mb-1 block">카테고리</label>
-                <select className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
-                  value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                  {form.type === 'expense' ? (
-                    <>
-                      <optgroup label="병원 경비">{EXPENSE_CATEGORIES.filter(c => c.group === '병원 경비').map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</optgroup>
-                      <optgroup label="생활비">{EXPENSE_CATEGORIES.filter(c => c.group === '생활비').map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</optgroup>
-                    </>
-                  ) : INCOME_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-              </div>
+              {editClinicItem ? (
+                <>
+                  {/* 병원경비 / 생활비 */}
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">구분</label>
+                    <div className="flex gap-2">
+                      {([['hospital', '병원 경비'], ['personal', '생활비']] as const).map(([v, l]) => (
+                        <button key={v} onClick={() => setForm(f => ({ ...f, scope: v }))}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${form.scope === v ? (v === 'hospital' ? 'bg-rose-50 text-rose-500 border-rose-200' : 'bg-amber-50 text-amber-600 border-amber-200') : 'border-slate-200 text-slate-500'}`}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">분류</label>
+                    <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                      placeholder="예: 기공료, 재료비, 직원..." value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} />
+                  </div>
+                  <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => setForm(f => ({ ...f, is_saving: !f.is_saving }))}>
+                    <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${form.is_saving ? 'bg-indigo-500' : 'bg-slate-300'}`}>
+                      <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.is_saving ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </div>
+                    <p className="text-sm font-medium text-slate-700">저축 항목</p>
+                  </label>
+                </>
+              ) : (
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">카테고리</label>
+                  <select className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                    value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                    {form.type === 'expense' ? (
+                      <>
+                        <optgroup label="병원 경비">{EXPENSE_CATEGORIES.filter(c => c.group === '병원 경비').map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</optgroup>
+                        <optgroup label="생활비">{EXPENSE_CATEGORIES.filter(c => c.group === '생활비').map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</optgroup>
+                      </>
+                    ) : INCOME_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">금액 (원)</label>
                 <input type="text" inputMode="numeric" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
@@ -648,15 +742,19 @@ export default function ExpensesPage() {
                 <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
                   placeholder="메모..." value={form.memo} onChange={e => setForm(f => ({ ...f, memo: e.target.value }))} />
               </div>
-              {editItem && (
-                <button onClick={async () => { if (confirm('이 내역을 삭제할까요?')) { await handleDelete(editItem.id); setShowModal(false); setEditItem(null) } }}
-                  className="w-full border border-red-200 text-red-400 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">
+              {(editItem || editClinicItem) && (
+                <button onClick={async () => {
+                  if (!confirm('이 내역을 삭제할까요?')) return
+                  if (editClinicItem) await handleDeleteClinic(editClinicItem.id)
+                  else if (editItem) await handleDelete(editItem.id)
+                  setShowModal(false); setEditItem(null); setEditClinicItem(null)
+                }} className="w-full border border-red-200 text-red-400 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">
                   삭제
                 </button>
               )}
               <button onClick={handleSave} disabled={loading || !form.amount}
                 className="w-full bg-blue-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors disabled:opacity-50">
-                {loading ? '저장 중...' : editItem ? '수정' : '저장'}
+                {loading ? '저장 중...' : (editItem || editClinicItem) ? '수정' : '저장'}
               </button>
             </div>
           </div>
