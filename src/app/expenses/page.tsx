@@ -38,6 +38,10 @@ export default function ExpensesPage() {
   const [clinicTx, setClinicTx] = useState<ClinicFinance[]>([])
   const [clinicYear, setClinicYear] = useState(new Date().getFullYear())
   const [clinicMonth, setClinicMonth] = useState(0) // 0 = 연간 전체
+  const [clinicCal, setClinicCal] = useState<ClinicFinance[]>([]) // 캘린더 표시용 (현재 달, Eddy만)
+
+  // Judy는 치과 탭 접근 불가
+  useEffect(() => { if (viewer !== 'eddy' && tab === 'clinic') setTab('calendar') }, [viewer, tab])
 
   useEffect(() => {
     setViewer((localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy')
@@ -63,6 +67,13 @@ export default function ExpensesPage() {
     setTransactions(cur.data || [])
     setPrevTransactions(prev.data || [])
     setYearTransactions(yr.data || [])
+    // 치과 가계부도 캘린더에 표시 (Eddy 화면에서만)
+    if (v === 'eddy') {
+      const { data: cf } = await supabase.from('clinic_finance').select('*').gte('date', monthStart).lte('date', monthEnd)
+      setClinicCal(cf || [])
+    } else {
+      setClinicCal([])
+    }
   }, [currentDate, viewer])
 
   useEffect(() => { fetchTransactions() }, [fetchTransactions])
@@ -279,7 +290,7 @@ export default function ExpensesPage() {
       {/* Tabs */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex gap-1">
-          {[{ k: 'calendar', l: '캘린더' }, { k: 'list', l: '목록' }, { k: 'stats', l: '통계' }, { k: 'clinic', l: '🦷 치과' }].map(t => (
+          {[{ k: 'calendar', l: '캘린더' }, { k: 'list', l: '목록' }, { k: 'stats', l: '통계' }, ...(viewer === 'eddy' ? [{ k: 'clinic', l: '🦷 치과' }] : [])].map(t => (
             <button key={t.k} onClick={() => setTab(t.k as typeof tab)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === t.k ? 'bg-blue-500 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
               {t.l}
@@ -350,19 +361,29 @@ export default function ExpensesPage() {
             {days.map((day, i) => {
               const ds = format(day, 'yyyy-MM-dd')
               const dayTs = transactions.filter(t => t.date === ds)
+              const dayClinic = clinicCal.filter(t => t.date === ds)
               const dow = getDay(day)
               const isLastRow = i >= days.length - 7
+              const shown = dayTs.slice(0, 5)
+              const clinicShown = dayClinic.slice(0, Math.max(0, 6 - shown.length))
+              const hiddenCount = (dayTs.length - shown.length) + (dayClinic.length - clinicShown.length)
               return (
                 <div key={ds} className={`border-b border-r border-slate-50 min-h-[110px] p-1 ${isLastRow ? 'border-b-0' : ''}`}>
                   <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday(day) ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
                   <div className="space-y-0.5">
-                    {dayTs.slice(0, 5).map(t => (
+                    {shown.map(t => (
                       <div key={t.id} onDoubleClick={() => openEdit(t)}
                         className={`text-[11px] px-1 py-0.5 rounded truncate cursor-pointer ${t.type === 'expense' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
                         {t.category} {t.type === 'expense' ? '-' : '+'}{t.amount.toLocaleString()}
                       </div>
                     ))}
-                    {dayTs.length > 5 && <div className="text-[10px] text-slate-400 px-1">+{dayTs.length - 5}</div>}
+                    {clinicShown.map(t => (
+                      <div key={t.id} title={`[치과] ${t.name || t.category} · ${t.category}`}
+                        className={`text-[11px] px-1 py-0.5 rounded truncate ${t.is_saving ? 'bg-indigo-50 text-indigo-600' : t.scope === 'hospital' ? 'bg-rose-50 text-rose-500' : 'bg-amber-50 text-amber-600'}`}>
+                        🦷 {t.category} -{t.amount.toLocaleString()}
+                      </div>
+                    ))}
+                    {hiddenCount > 0 && <div className="text-[10px] text-slate-400 px-1">+{hiddenCount}</div>}
                   </div>
                 </div>
               )
@@ -627,6 +648,12 @@ export default function ExpensesPage() {
                 <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
                   placeholder="메모..." value={form.memo} onChange={e => setForm(f => ({ ...f, memo: e.target.value }))} />
               </div>
+              {editItem && (
+                <button onClick={async () => { if (confirm('이 내역을 삭제할까요?')) { await handleDelete(editItem.id); setShowModal(false); setEditItem(null) } }}
+                  className="w-full border border-red-200 text-red-400 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">
+                  삭제
+                </button>
+              )}
               <button onClick={handleSave} disabled={loading || !form.amount}
                 className="w-full bg-blue-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors disabled:opacity-50">
                 {loading ? '저장 중...' : editItem ? '수정' : '저장'}
