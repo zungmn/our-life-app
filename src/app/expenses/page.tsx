@@ -49,6 +49,13 @@ const itemColor = (it: CalItem) => {
   return 'bg-red-50 text-red-600'
 }
 
+// 치과 가계부 분류 목록 (선택용)
+const CLINIC_CAT_HOSPITAL = ['직원', '기공료', '재료비', '병원 지출 카드', '마케팅', '임대료', '관리비', '노무, 세무', '대출 이자', '임플란트 할부', '세미나', '인터넷 요금', '치과 보험', '경조사비', '세금', '대출', '기타']
+const CLINIC_CAT_PERSONAL = ['생활비 카드', '개인 사용', '개인 보험', '저축', '주식', '노란 우산']
+const PERSONAL_CAT_SET = new Set(CLINIC_CAT_PERSONAL)
+const catColorOf = (name: string) => EXPENSE_CATEGORIES.find(c => c.value === name)?.color || '#9CA3AF'
+const STAT_PALETTE = ['#6366F1', '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#EC4899', '#8B5CF6', '#14B8A6', '#F97316', '#84CC16', '#06B6D4', '#A855F7', '#F43F5E', '#0EA5E9', '#D946EF']
+
 export default function ExpensesPage() {
   const [viewer, setViewer] = useState<'eddy' | 'judy'>('eddy')
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -58,6 +65,8 @@ export default function ExpensesPage() {
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState<Transaction | null>(null)
   const [editClinicItem, setEditClinicItem] = useState<ClinicFinance | null>(null)
+  const [clinicMode, setClinicMode] = useState(false) // 추가/수정 시 clinic_finance 사용 여부
+  const [monthRevenue, setMonthRevenue] = useState('') // 이번 달 매출 (통계용, localStorage)
   const [tab, setTab] = useState<'calendar' | 'list' | 'stats' | 'clinic'>('calendar')
   const [listTab, setListTab] = useState<'all' | 'expense' | 'income'>('all')
   const [form, setForm] = useState({ date: format(new Date(), 'yyyy-MM-dd'), type: 'expense' as 'income' | 'expense', category: '직원', amount: '', memo: '', scope: 'hospital' as 'hospital' | 'personal', is_saving: false })
@@ -119,21 +128,36 @@ export default function ExpensesPage() {
 
   useEffect(() => { if (tab === 'clinic') fetchClinic() }, [tab, fetchClinic])
 
-  const openAdd = () => {
+  // 이번 달 매출 (통계용) localStorage 로드
+  const revKey = `clinic_revenue_${format(currentDate, 'yyyy-MM')}`
+  useEffect(() => {
+    setMonthRevenue(localStorage.getItem(`clinic_revenue_${format(currentDate, 'yyyy-MM')}`) || '')
+  }, [currentDate])
+  const saveRevenue = (v: string) => {
+    setMonthRevenue(v)
+    if (v) localStorage.setItem(revKey, v); else localStorage.removeItem(revKey)
+  }
+
+  // 날짜 클릭 → 그 날짜로 추가 (Eddy는 치과 가계부로, Judy는 개인 거래로)
+  const openAdd = (date?: string) => {
     setEditItem(null)
     setEditClinicItem(null)
-    setForm({ date: format(new Date(), 'yyyy-MM-dd'), type: 'expense', category: '직원', amount: '', memo: '', scope: 'hospital', is_saving: false })
+    const useClinic = viewer === 'eddy'
+    setClinicMode(useClinic)
+    setForm({ date: date || format(new Date(), 'yyyy-MM-dd'), type: 'expense', category: useClinic ? '직원' : '직원', amount: '', memo: '', scope: 'hospital', is_saving: false })
     setShowModal(true)
   }
   const openEdit = (t: Transaction) => {
     setEditItem(t)
     setEditClinicItem(null)
+    setClinicMode(false)
     setForm({ date: t.date, type: t.type, category: t.category, amount: t.amount.toLocaleString(), memo: t.memo || '', scope: 'hospital', is_saving: false })
     setShowModal(true)
   }
   const openEditClinic = (t: ClinicFinance) => {
     setEditClinicItem(t)
     setEditItem(null)
+    setClinicMode(true)
     setForm({ date: t.date, type: t.type, category: t.category || '기타', amount: t.amount.toLocaleString(), memo: t.name || '', scope: (t.scope || 'hospital'), is_saving: t.is_saving })
     setShowModal(true)
   }
@@ -160,6 +184,41 @@ export default function ExpensesPage() {
   const calExpenseTotal = monthItems.filter(i => i.type === 'expense' && !i.is_saving).reduce((s, i) => s + i.amount, 0)
   const calSavingTotal = monthItems.filter(i => i.is_saving).reduce((s, i) => s + i.amount, 0)
   const calIncomeTotal = monthItems.filter(i => i.type === 'income' && !i.is_saving).reduce((s, i) => s + i.amount, 0)
+
+  // ===== 통계 탭 (이번 달, 개인+치과 통합) =====
+  const statExpenseItems = monthItems.filter(i => i.type === 'expense' && !i.is_saving)
+  const statHospitalTotal = statExpenseItems.filter(i => i.scope === 'hospital').reduce((s, i) => s + i.amount, 0)
+  const statPersonalTotal = statExpenseItems.filter(i => i.scope !== 'hospital').reduce((s, i) => s + i.amount, 0)
+  const catAmt = (name: string) => statExpenseItems.filter(i => i.category === name).reduce((s, i) => s + i.amount, 0)
+  const statCatTotals = (() => {
+    const map: Record<string, number> = {}
+    for (const i of statExpenseItems) { const c = i.category || '기타'; map[c] = (map[c] || 0) + i.amount }
+    return Object.entries(map).map(([name, value], idx) => ({
+      name, value, color: catColorOf(name) !== '#9CA3AF' ? catColorOf(name) : STAT_PALETTE[idx % STAT_PALETTE.length],
+      pct: calExpenseTotal ? Math.round(value / calExpenseTotal * 1000) / 10 : 0,
+    })).sort((a, b) => b.value - a.value)
+  })()
+  // 경영 핵심 지표 (병원 경비 분석)
+  const kpiLabor = catAmt('직원')
+  const kpiLab = catAmt('기공료')
+  const kpiMaterial = catAmt('재료비')
+  const kpiCard = catAmt('병원 지출 카드')
+  const kpiRent = catAmt('임대료')
+  const kpiMgmt = catAmt('관리비')
+  const kpiMarketing = catAmt('마케팅')
+  const kpiFixed = kpiRent + kpiMgmt + catAmt('인터넷 요금') // 고정비
+  const revenueNum = toNum(monthRevenue)
+  const pctOf = (v: number, base: number) => base > 0 ? Math.round(v / base * 1000) / 10 : 0
+  const netProfit = revenueNum - statHospitalTotal
+  const netMargin = pctOf(netProfit, revenueNum)
+  // 경영 권장 비율 (매출 대비, 치과 일반 기준)
+  const mgmtRatios = [
+    { label: '인건비(직원)', val: kpiLabor, healthy: 30, note: '25~30% 권장' },
+    { label: '기공료', val: kpiLab, healthy: 12, note: '8~12% 권장' },
+    { label: '재료비', val: kpiMaterial, healthy: 12, note: '8~12% 권장' },
+    { label: '임대료', val: kpiRent, healthy: 7, note: '5~7% 권장' },
+    { label: '마케팅', val: kpiMarketing, healthy: 7, note: '3~7% 권장' },
+  ]
 
   // Yearly monthly data for chart
   const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) })
@@ -211,13 +270,16 @@ export default function ExpensesPage() {
     if (!form.amount || !form.category) return
     setLoading(true)
     const amount = toNum(form.amount)
-    if (editClinicItem) {
-      // 치과 가계부 항목 수정
-      const { error } = await supabase.from('clinic_finance').update({
-        date: form.date, amount, type: form.type, scope: form.scope,
-        category: form.category, name: form.memo || null, is_saving: form.is_saving,
-      }).eq('id', editClinicItem.id)
-      if (error) { alert('수정 실패: ' + error.message); setLoading(false); return }
+    if (clinicMode) {
+      // 치과 가계부 (clinic_finance) 추가 / 수정
+      const payload = { date: form.date, amount, type: form.type, scope: form.scope, category: form.category, name: form.memo || null, is_saving: form.is_saving }
+      if (editClinicItem) {
+        const { error } = await supabase.from('clinic_finance').update(payload).eq('id', editClinicItem.id)
+        if (error) { alert('수정 실패: ' + error.message); setLoading(false); return }
+      } else {
+        const { error } = await supabase.from('clinic_finance').insert(payload)
+        if (error) { alert('저장 실패: ' + error.message); setLoading(false); return }
+      }
     } else if (editItem) {
       const { error } = await supabase.from('transactions').update({ date: form.date, type: form.type, category: form.category, amount, memo: form.memo || null }).eq('id', editItem.id)
       if (error) { alert('수정 실패: ' + error.message); setLoading(false); return }
@@ -361,7 +423,7 @@ export default function ExpensesPage() {
             <Upload size={12} /> CSV
             <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCsvImport} disabled={importing} />
           </label>
-          <button onClick={openAdd}
+          <button onClick={() => openAdd()}
             className="flex items-center gap-1 bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors">
             <Plus size={14} /> 추가
           </button>
@@ -436,11 +498,14 @@ export default function ExpensesPage() {
               const shown = items.slice(0, 6)
               const hiddenCount = items.length - shown.length
               return (
-                <div key={ds} className={`border-b border-r border-slate-50 min-h-[110px] p-1 ${isLastRow ? 'border-b-0' : ''}`}>
+                <div key={ds} onClick={() => openAdd(ds)}
+                  className={`border-b border-r border-slate-50 min-h-[110px] p-1 cursor-pointer hover:bg-slate-50/70 transition-colors ${isLastRow ? 'border-b-0' : ''}`}>
                   <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday(day) ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
                   <div className="space-y-0.5">
                     {shown.map(it => (
-                      <div key={it.id} onDoubleClick={() => it.source === 'tx' ? openEdit(it.tx!) : openEditClinic(it.cf!)}
+                      <div key={it.id}
+                        onClick={e => e.stopPropagation()}
+                        onDoubleClick={e => { e.stopPropagation(); it.source === 'tx' ? openEdit(it.tx!) : openEditClinic(it.cf!) }}
                         title={`${it.memo} · ${it.category}`}
                         className={`flex items-center gap-1 text-[11px] px-1 py-0.5 rounded cursor-pointer ${itemColor(it)}`}>
                         <span className="truncate flex-1">{it.memo}</span>
@@ -460,86 +525,119 @@ export default function ExpensesPage() {
       {/* Stats view */}
       {tab === 'stats' && (
         <div className="space-y-4">
-          {/* Category chart */}
-          {categoryTotals.length > 0 && (
+          <p className="text-xs text-slate-400">{format(currentDate, 'yyyy년 M월', { locale: ko })} 기준 · 개인 + 치과 통합</p>
+
+          {/* 이번달 수입/지출/저축 */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="card p-3"><p className="text-xs text-slate-400 mb-1">수입</p><p className="text-base font-bold text-green-500">{fmt(calIncomeTotal)}</p></div>
+            <div className="card p-3"><p className="text-xs text-slate-400 mb-1">지출</p><p className="text-base font-bold text-red-500">{fmt(calExpenseTotal)}</p></div>
+            <div className="card p-3"><p className="text-xs text-slate-400 mb-1">저축</p><p className="text-base font-bold text-indigo-600">{fmt(calSavingTotal)}</p></div>
+          </div>
+
+          {/* 병원 경비 vs 생활비 */}
+          <div className="card p-4">
+            <h3 className="font-semibold text-slate-800 mb-2 text-sm">🏥 병원 경비 vs 생활비</h3>
+            <div className="flex h-4 rounded-full overflow-hidden bg-slate-100 mb-2">
+              {calExpenseTotal > 0 && <>
+                <div className="bg-rose-400" style={{ width: `${pctOf(statHospitalTotal, calExpenseTotal)}%` }} />
+                <div className="bg-amber-400" style={{ width: `${pctOf(statPersonalTotal, calExpenseTotal)}%` }} />
+              </>}
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-rose-500">병원 {fmt(statHospitalTotal)} ({pctOf(statHospitalTotal, calExpenseTotal)}%)</span>
+              <span className="text-amber-600">생활 {fmt(statPersonalTotal)} ({pctOf(statPersonalTotal, calExpenseTotal)}%)</span>
+            </div>
+          </div>
+
+          {/* 매출 입력 → 경영 지표 */}
+          <div className="card p-4">
+            <h3 className="font-semibold text-slate-800 mb-1 text-sm">📈 경영 지표</h3>
+            <p className="text-[11px] text-slate-400 mb-3">이번 달 매출을 입력하면 매출 대비 비율과 순이익을 계산합니다</p>
+            <div className="flex items-center gap-2 mb-3">
+              <input type="text" inputMode="numeric" placeholder="이번 달 매출 입력"
+                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                value={monthRevenue ? Number(monthRevenue).toLocaleString() : ''}
+                onChange={e => saveRevenue(e.target.value.replace(/[^0-9]/g, ''))} />
+              <span className="text-xs text-slate-400">원</span>
+            </div>
+            {revenueNum > 0 ? (
+              <>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <p className="text-xs text-slate-400 mb-0.5">순이익 (매출 - 병원경비)</p>
+                    <p className={`text-base font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{fmt(netProfit)}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <p className="text-xs text-slate-400 mb-0.5">순이익률</p>
+                    <p className={`text-base font-bold ${netMargin >= 25 ? 'text-green-600' : netMargin >= 0 ? 'text-amber-600' : 'text-red-500'}`}>{netMargin}%</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {mgmtRatios.map(r => {
+                    const pct = pctOf(r.val, revenueNum)
+                    const status = pct <= r.healthy ? ['양호', 'text-green-600 bg-green-50'] : pct <= r.healthy + 5 ? ['주의', 'text-amber-600 bg-amber-50'] : ['높음', 'text-red-500 bg-red-50']
+                    return (
+                      <div key={r.label} className="flex items-center gap-2">
+                        <span className="text-xs text-slate-600 w-24 flex-shrink-0">{r.label}</span>
+                        <div className="flex-1 bg-slate-100 rounded-full h-2"><div className="h-2 rounded-full bg-blue-400" style={{ width: `${Math.min(100, pct)}%` }} /></div>
+                        <span className="text-xs font-medium text-slate-700 w-12 text-right">{pct}%</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full w-10 text-center ${status[1]}`}>{status[0]}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2">* 비율은 매출 대비 · 일반적인 치과 권장치 기준 ({mgmtRatios.map(r => `${r.label.replace(/\(.*\)/, '')} ${r.note}`).slice(0, 2).join(', ')} 등)</p>
+              </>
+            ) : (
+              <p className="text-xs text-slate-400 text-center py-2">매출 미입력 — 아래는 지출 대비 비율로 표시됩니다</p>
+            )}
+          </div>
+
+          {/* 핵심 지출 항목 */}
+          <div className="card p-4">
+            <h3 className="font-semibold text-slate-800 mb-3 text-sm">💵 핵심 지출 항목 {revenueNum > 0 ? '(매출 대비)' : '(지출 대비)'}</h3>
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                { l: '직원(인건비)', v: kpiLabor }, { l: '기공료', v: kpiLab },
+                { l: '재료비', v: kpiMaterial }, { l: '병원 지출 카드', v: kpiCard },
+                { l: '임대료', v: kpiRent }, { l: '관리비', v: kpiMgmt },
+                { l: '마케팅', v: kpiMarketing }, { l: '고정비(임대+관리+인터넷)', v: kpiFixed },
+              ].map(k => (
+                <div key={k.l} className="bg-slate-50 rounded-lg p-2.5">
+                  <p className="text-[11px] text-slate-400 truncate">{k.l}</p>
+                  <p className="text-sm font-bold text-slate-800">{fmt(k.v)}</p>
+                  <p className="text-[11px] text-blue-500">{pctOf(k.v, revenueNum > 0 ? revenueNum : calExpenseTotal)}%</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 분류별 지출 */}
+          {statCatTotals.length > 0 && (
             <div className="card p-4">
-              <h3 className="font-semibold text-slate-800 mb-3 text-sm">📊 카테고리별 지출 ({format(currentDate, 'M월', { locale: ko })})</h3>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={categoryTotals} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <h3 className="font-semibold text-slate-800 mb-3 text-sm">📊 분류별 지출</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={statCatTotals} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} angle={-30} textAnchor="end" height={50} />
                   <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${Math.round(v / 10000)}만`} />
                   <Tooltip formatter={(v) => [`${Number(v).toLocaleString()}원`, '지출']} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                    {categoryTotals.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    {statCatTotals.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+              <div className="mt-2 space-y-1">
+                {statCatTotals.slice(0, 8).map(c => (
+                  <div key={c.name} className="flex items-center gap-2 text-xs">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                    <span className="text-slate-600 flex-1 truncate">{c.name}</span>
+                    <span className="text-slate-700 font-medium">{fmt(c.value)}</span>
+                    <span className="text-slate-400 w-10 text-right">{c.pct}%</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-
-          {/* Yearly chart */}
-          <div className="card p-4">
-            <h3 className="font-semibold text-slate-800 mb-3 text-sm">📅 {format(currentDate, 'yyyy년')} 월별 수입/지출</h3>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={yearlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${Math.round(v / 10000)}만`} />
-                <Tooltip formatter={(v, name) => [`${Number(v).toLocaleString()}원`, name === 'income' ? '수입' : name === 'expense' ? '지출' : '저축']} />
-                <Legend formatter={v => v === 'income' ? '수입' : v === 'expense' ? '지출' : '저축'} />
-                <Bar dataKey="income" fill="#10B981" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="expense" fill="#EF4444" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Savings line */}
-          <div className="card p-4">
-            <h3 className="font-semibold text-slate-800 mb-1 text-sm">💰 월별 저축 추이</h3>
-            <ResponsiveContainer width="100%" height={160}>
-              <LineChart data={yearlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${Math.round(v / 10000)}만`} />
-                <Tooltip formatter={(v) => [`${Number(v).toLocaleString()}원`, '저축']} />
-                <Line type="monotone" dataKey="savings" stroke="#6366F1" strokeWidth={2} dot={{ fill: '#6366F1', r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-            <div className="mt-2 flex items-center gap-3 text-sm">
-              <span className="text-slate-500">올해 누적 저축</span>
-              <span className={`font-bold ${yearTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0) - yearTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0) >= 0 ? 'text-indigo-600' : 'text-red-500'}`}>
-                {fmt(yearTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0) - yearTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0))}
-              </span>
-            </div>
-          </div>
-
-          {/* Month comparison detail */}
-          <div className="card p-4">
-            <h3 className="font-semibold text-slate-800 mb-3 text-sm">📈 전달 대비</h3>
-            <div className="space-y-3">
-              {[
-                { label: '수입', cur: totalIncome, prev: prevIncome, color: 'text-green-600', good: (d: number) => d >= 0 },
-                { label: '지출', cur: totalExpense, prev: prevExpense, color: 'text-red-500', good: (d: number) => d <= 0 },
-                { label: '저축', cur: totalSavings, prev: prevSavings, color: 'text-indigo-600', good: (d: number) => d >= 0 },
-              ].map(({ label, cur, prev, good }) => {
-                const diff = cur - prev
-                const pct = prev > 0 ? Math.round(Math.abs(diff) / prev * 100) : null
-                return (
-                  <div key={label} className="flex items-center gap-3">
-                    <span className="text-xs text-slate-500 w-8">{label}</span>
-                    <div className="flex-1 bg-slate-100 rounded-full h-2">
-                      <div className="bg-blue-400 h-2 rounded-full" style={{ width: `${Math.min(100, prev > 0 ? (cur / Math.max(cur, prev)) * 100 : 0)}%` }} />
-                    </div>
-                    <span className="text-sm font-medium text-slate-700 w-24 text-right">{fmt(cur)}</span>
-                    {pct !== null && (
-                      <span className={`text-xs w-14 text-right flex items-center justify-end gap-0.5 ${good(diff) ? 'text-green-500' : 'text-red-500'}`}>
-                        {diff > 0 ? <TrendingUp size={11} /> : diff < 0 ? <TrendingDown size={11} /> : <Minus size={11} />}
-                        {pct}%
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
         </div>
       )}
 
@@ -674,13 +772,13 @@ export default function ExpensesPage() {
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
           <div className="bg-white rounded-2xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800">{editClinicItem ? '내역 수정' : editItem ? '내역 수정' : '내역 추가'}</h3>
+              <h3 className="font-semibold text-slate-800">{(editItem || editClinicItem) ? '내역 수정' : '내역 추가'}</h3>
               <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400" /></button>
             </div>
             <div className="space-y-3">
               <div className="flex gap-2">
                 {(['expense', 'income'] as const).map(type => (
-                  <button key={type} onClick={() => setForm(f => ({ ...f, type, category: editClinicItem ? f.category : (type === 'expense' ? '직원' : '진료 수입') }))}
+                  <button key={type} onClick={() => setForm(f => ({ ...f, type, category: clinicMode ? f.category : (type === 'expense' ? '직원' : '진료 수입') }))}
                     className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${form.type === type ? (type === 'expense' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200') : 'border-slate-200 text-slate-500'}`}>
                     {type === 'expense' ? '지출' : '수입'}
                   </button>
@@ -690,9 +788,23 @@ export default function ExpensesPage() {
                 <label className="text-xs text-slate-500 mb-1 block">날짜</label>
                 <DateInput value={form.date} onChange={v => setForm(f => ({ ...f, date: v }))} className="w-full" />
               </div>
-              {editClinicItem ? (
+              {clinicMode ? (
                 <>
-                  {/* 병원경비 / 생활비 */}
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">분류</label>
+                    <select className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                      value={form.category}
+                      onChange={e => {
+                        const cat = e.target.value
+                        setForm(f => ({ ...f, category: cat, scope: PERSONAL_CAT_SET.has(cat) ? 'personal' : 'hospital', is_saving: cat === '저축' }))
+                      }}>
+                      <optgroup label="병원 경비">{CLINIC_CAT_HOSPITAL.map(c => <option key={c} value={c}>{c}</option>)}</optgroup>
+                      <optgroup label="생활비">{CLINIC_CAT_PERSONAL.map(c => <option key={c} value={c}>{c}</option>)}</optgroup>
+                      {![...CLINIC_CAT_HOSPITAL, ...CLINIC_CAT_PERSONAL].includes(form.category) && form.category && (
+                        <option value={form.category}>{form.category}</option>
+                      )}
+                    </select>
+                  </div>
                   <div>
                     <label className="text-xs text-slate-500 mb-1 block">구분</label>
                     <div className="flex gap-2">
@@ -703,11 +815,6 @@ export default function ExpensesPage() {
                         </button>
                       ))}
                     </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-500 mb-1 block">분류</label>
-                    <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
-                      placeholder="예: 기공료, 재료비, 직원..." value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} />
                   </div>
                   <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
                     onClick={() => setForm(f => ({ ...f, is_saving: !f.is_saving }))}>
