@@ -46,6 +46,8 @@ export const BUDGET_CATEGORIES: { value: string; scope: BudgetScope; saving?: bo
   // 가계
   { value: '여행', scope: 'household', color: '#22C55E' },
   { value: '집', scope: 'household', color: '#0D9488' },
+  { value: '아이', scope: 'household', color: '#FB7185' },
+  { value: '가족', scope: 'household', color: '#2DD4BF' },
   { value: '저축', scope: 'household', saving: true, color: '#6366F1' },
   { value: '주식', scope: 'household', saving: true, color: '#8B5CF6' },
   { value: '노란우산', scope: 'household', saving: true, color: '#F59E0B' },

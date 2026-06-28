@@ -5,7 +5,9 @@ import { supabase, Book } from '@/lib/supabase'
 import { Plus, X, Trash2, Star, Upload } from 'lucide-react'
 import DateInput from '@/components/DateInput'
 import { format } from 'date-fns'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import dynamic from 'next/dynamic'
+
+const YearBarChart = dynamic(() => import('./YearBarChart'), { ssr: false, loading: () => <div className="h-40" /> })
 
 const GENRES = ['자기계발', '경영/경제', '마케팅', '인문', '철학', '심리', '과학', '역사', '소설', '에세이', '건강', '육아', '종교', '기타']
 
@@ -152,7 +154,7 @@ export default function BooksPage() {
     const s = { sm: 'w-[84px] h-[120px]', md: 'w-[144px] h-[216px]', lg: 'w-[168px] h-[240px]' }[size]
     return book.cover_url ? (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={book.cover_url} alt={book.title} className={`${s} object-cover rounded-lg flex-shrink-0`} />
+      <img src={book.cover_url} alt={book.title} loading="lazy" decoding="async" className={`${s} object-cover rounded-lg flex-shrink-0`} />
     ) : (
       <div className={`${s} bg-gradient-to-br from-blue-400 to-indigo-600 rounded-lg flex-shrink-0 flex items-end p-1.5`}>
         <p className="text-white font-bold text-sm leading-tight line-clamp-4">{book.title}</p>
@@ -399,14 +401,7 @@ export default function BooksPage() {
           {yearCounts.length > 0 && (
             <div className="card p-4">
               <h4 className="text-sm font-semibold text-slate-700 mb-3">연도별 완독 권수</h4>
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={yearCounts}>
-                  <XAxis dataKey="year" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip formatter={(v) => [`${v}권`, '완독']} />
-                  <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <YearBarChart data={yearCounts} />
             </div>
           )}
           {genreCounts.length > 0 && (

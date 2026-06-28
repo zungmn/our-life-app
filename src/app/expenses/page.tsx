@@ -50,6 +50,7 @@ export default function ExpensesPage() {
   const [editClinicItem, setEditClinicItem] = useState<ClinicFinance | null>(null)
   const [clinicMode, setClinicMode] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [catOpen, setCatOpen] = useState(false)
   const [monthRevenue, setMonthRevenue] = useState('')
   const [form, setForm] = useState({
     date: format(new Date(), 'yyyy-MM-dd'), type: 'expense' as 'income' | 'expense',
@@ -182,8 +183,10 @@ export default function ExpensesPage() {
   const days = eachDayOfInterval({ start: monthStartDate, end: monthEndDate })
   const startPad = getDay(monthStartDate)
 
-  // 분류 옵션 (구분/저축 기준 필터)
-  const catOptions = BUDGET_CATEGORIES.filter(c => c.scope === form.scope)
+  // 분류 옵션 (구분 기준 필터 + 가나다 정렬), 입력값으로 추가 검색
+  const scopeCats = BUDGET_CATEGORIES.filter(c => c.scope === form.scope).map(c => c.value).sort((a, b) => a.localeCompare(b, 'ko'))
+  const isExactCat = scopeCats.includes(form.category)
+  const catOptions = (isExactCat || !form.category) ? scopeCats : scopeCats.filter(v => v.includes(form.category))
 
   // 4분할 합계 카드 데이터
   const bucketCards = [
@@ -331,8 +334,8 @@ export default function ExpensesPage() {
             )}
           </div>
 
-          {/* scope별 분류 분석 */}
-          {SCOPES.map(s => {
+          {/* scope별 분류 분석 (개인 제외) */}
+          {(['hospital', 'household'] as BudgetScope[]).map(s => {
             const bd = scopeBreakdown(s)
             if (bd.cats.length === 0) return null
             return (
@@ -452,16 +455,28 @@ export default function ExpensesPage() {
                     </div>
                     <p className="text-sm font-medium text-slate-700">저축 항목</p>
                   </label>
-                  {/* 6. 분류 (검색 가능) */}
-                  <div>
-                    <label className="text-xs text-slate-500 mb-1 block">분류 (검색 가능)</label>
-                    <input list="budget-cats" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
-                      placeholder="분류 검색/선택" value={form.category}
-                      onChange={e => { const v = e.target.value; setForm(f => ({ ...f, category: v, is_saving: catSavingOf(v) || f.is_saving })) }}
-                      onKeyDown={e => { if (e.key === 'Enter') handleSave() }} />
-                    <datalist id="budget-cats">
-                      {catOptions.map(c => <option key={c.value} value={c.value} />)}
-                    </datalist>
+                  {/* 6. 분류 (검색 + 목록 선택) */}
+                  <div className="relative">
+                    <label className="text-xs text-slate-500 mb-1 block">분류 (검색하거나 목록에서 선택)</label>
+                    <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                      placeholder="입력하거나 선택하세요" value={form.category}
+                      onFocus={() => setCatOpen(true)}
+                      onChange={e => { const v = e.target.value; setCatOpen(true); setForm(f => ({ ...f, category: v, is_saving: catSavingOf(v) || f.is_saving })) }}
+                      onKeyDown={e => { if (e.key === 'Enter') { setCatOpen(false); handleSave() } }} />
+                    {catOpen && catOptions.length > 0 && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setCatOpen(false)} />
+                        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {catOptions.map(c => (
+                            <button key={c} type="button"
+                              onClick={() => { setForm(f => ({ ...f, category: c, scope: catScopeOf(c), is_saving: catSavingOf(c) })); setCatOpen(false) }}
+                              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors ${form.category === c ? 'text-blue-600 font-medium' : 'text-slate-700'}`}>
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </>
               )}

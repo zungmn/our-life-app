@@ -176,7 +176,8 @@ export default function TodosPage() {
             <div className="space-y-3">
               <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
                 placeholder="할 일 입력" value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus />
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter' && form.title.trim()) handleSave() }} autoFocus />
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">마감일</label>
                 <DatePickerInput value={form.deadline} onChange={v => setForm(f => ({ ...f, deadline: v }))} className="w-full" />
