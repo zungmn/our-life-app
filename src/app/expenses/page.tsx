@@ -51,6 +51,7 @@ export default function ExpensesPage() {
   const [clinicMode, setClinicMode] = useState(false)
   const [loading, setLoading] = useState(false)
   const [catOpen, setCatOpen] = useState(false)
+  const [uploadName, setUploadName] = useState('')
   const [monthRevenue, setMonthRevenue] = useState('')
   const [form, setForm] = useState({
     date: format(new Date(), 'yyyy-MM-dd'), type: 'expense' as 'income' | 'expense',
@@ -241,12 +242,18 @@ export default function ExpensesPage() {
             <span className="text-[10px] text-slate-300">엑셀/HTML 연동 예정</span>
           </div>
           <div className="flex items-center gap-2">
-            <input type="text" inputMode="numeric" placeholder="총 매출 입력"
+            <input type="text" inputMode="numeric" placeholder="총 매출 직접 입력"
               className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
               value={monthRevenue ? Number(monthRevenue).toLocaleString() : ''}
               onChange={e => saveRevenue(e.target.value.replace(/[^0-9]/g, ''))} />
             <span className="text-xs text-slate-400">원</span>
+            <label className="flex-shrink-0 text-xs px-3 py-2 rounded-lg cursor-pointer border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
+              파일 업로드
+              <input type="file" accept=".xlsx,.xls,.csv,.html,.htm" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) setUploadName(f.name) }} />
+            </label>
           </div>
+          {uploadName && <p className="text-[11px] text-slate-400 mt-1">📎 {uploadName} · 자동 인식 연동 예정 (지금은 위에 직접 입력)</p>}
         </div>
       )}
 
@@ -442,32 +449,7 @@ export default function ExpensesPage() {
               </div>
               {form.type === 'expense' && (
                 <>
-                  {/* 4. 구분 */}
-                  <div>
-                    <label className="text-xs text-slate-500 mb-1 block">구분</label>
-                    <div className="flex gap-2">
-                      {SCOPES.map(s => (
-                        <button key={s} onClick={() => setForm(f => {
-                          const first = BUDGET_CATEGORIES.find(c => c.scope === s)
-                          const keep = BUDGET_CATEGORIES.find(c => c.value === f.category && c.scope === s)
-                          const cat = keep ? f.category : (first?.value || f.category)
-                          return { ...f, scope: s, category: cat, is_saving: catSavingOf(cat) }
-                        })}
-                          className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${form.scope === s ? 'bg-blue-50 text-blue-600 border-blue-200' : 'border-slate-200 text-slate-500'}`}>
-                          {SCOPE_LABEL[s]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {/* 5. 저축 */}
-                  <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
-                    onClick={() => setForm(f => ({ ...f, is_saving: !f.is_saving }))}>
-                    <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${form.is_saving ? 'bg-indigo-500' : 'bg-slate-300'}`}>
-                      <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.is_saving ? 'translate-x-4' : 'translate-x-0'}`} />
-                    </div>
-                    <p className="text-sm font-medium text-slate-700">저축 항목</p>
-                  </label>
-                  {/* 6. 분류 (검색 + 목록 선택) */}
+                  {/* 분류 (검색 + 목록 선택) */}
                   <div className="relative">
                     <label className="text-xs text-slate-500 mb-1 block">분류 (검색하거나 목록에서 선택)</label>
                     <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
@@ -490,6 +472,31 @@ export default function ExpensesPage() {
                       </>
                     )}
                   </div>
+                  {/* 구분 */}
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">구분</label>
+                    <div className="flex gap-2">
+                      {SCOPES.map(s => (
+                        <button key={s} onClick={() => setForm(f => {
+                          const first = BUDGET_CATEGORIES.find(c => c.scope === s)
+                          const keep = BUDGET_CATEGORIES.find(c => c.value === f.category && c.scope === s)
+                          const cat = keep ? f.category : (first?.value || f.category)
+                          return { ...f, scope: s, category: cat, is_saving: catSavingOf(cat) }
+                        })}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${form.scope === s ? 'bg-blue-50 text-blue-600 border-blue-200' : 'border-slate-200 text-slate-500'}`}>
+                          {SCOPE_LABEL[s]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* 저축 */}
+                  <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => setForm(f => ({ ...f, is_saving: !f.is_saving }))}>
+                    <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${form.is_saving ? 'bg-indigo-500' : 'bg-slate-300'}`}>
+                      <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.is_saving ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </div>
+                    <p className="text-sm font-medium text-slate-700">저축 항목</p>
+                  </label>
                 </>
               )}
               {form.type === 'income' && (

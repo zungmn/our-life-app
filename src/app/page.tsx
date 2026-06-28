@@ -477,7 +477,8 @@ export default function Home() {
             <div className="space-y-3">
               <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
                 placeholder="할 일 입력" value={todoForm.title}
-                onChange={e => setTodoForm(f => ({ ...f, title: e.target.value }))} autoFocus />
+                onChange={e => setTodoForm(f => ({ ...f, title: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter' && todoForm.title.trim()) handleTodoSave() }} autoFocus />
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">마감일</label>
                 <DatePickerInput value={todoForm.deadline} onChange={v => setTodoForm(f => ({ ...f, deadline: v }))} className="w-full" />
@@ -510,7 +511,8 @@ export default function Home() {
             <div className="space-y-3">
               <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400"
                 placeholder="프로젝트명" value={projectForm.title}
-                onChange={e => setProjectForm(f => ({ ...f, title: e.target.value }))} autoFocus />
+                onChange={e => setProjectForm(f => ({ ...f, title: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter' && projectForm.title.trim()) handleProjectSave() }} autoFocus />
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">마감일 (선택)</label>
                 <DatePickerInput value={projectForm.deadline} onChange={v => setProjectForm(f => ({ ...f, deadline: v }))} className="w-full" />
@@ -551,7 +553,8 @@ export default function Home() {
             <div className="space-y-3">
               <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-slate-400"
                 placeholder="일정 제목" value={eventForm.title}
-                onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))} autoFocus />
+                onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter' && eventForm.title.trim()) handleEventSave() }} autoFocus />
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-slate-500 mb-1 block">시작일</label>
