@@ -95,6 +95,8 @@ export default function ExpensesPage() {
   const totalIncome = sum(incomeItems)
   const totalExpense = sum(expenseItems)
   const totalSaving = sum(savingItems)
+  // 치과 총 매출(수동 입력) + 수동 수입 = 이번 달 수입
+  const displayIncome = totalIncome + (viewer === 'eddy' ? toNum(monthRevenue) : 0)
   const scopeTotal = (s: BudgetScope) => sum(expenseItems.filter(i => i.scope === s))
 
   // ===== 모달 =====
@@ -231,9 +233,26 @@ export default function ExpensesPage() {
         </button>
       </div>
 
+      {/* 치과 총 매출 입력 (Eddy 전용) */}
+      {viewer === 'eddy' && (
+        <div className="card p-3 mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-slate-400">이번 달 총 매출 (덴트웹)</p>
+            <span className="text-[10px] text-slate-300">엑셀/HTML 연동 예정</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="text" inputMode="numeric" placeholder="총 매출 입력"
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+              value={monthRevenue ? Number(monthRevenue).toLocaleString() : ''}
+              onChange={e => saveRevenue(e.target.value.replace(/[^0-9]/g, ''))} />
+            <span className="text-xs text-slate-400">원</span>
+          </div>
+        </div>
+      )}
+
       {/* 수입 / 지출 */}
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="card p-3"><p className="text-xs text-slate-400 mb-0.5">이번 달 수입</p><p className="text-base font-bold text-green-500">{fmt(totalIncome)}</p></div>
+        <div className="card p-3"><p className="text-xs text-slate-400 mb-0.5">이번 달 수입</p><p className="text-base font-bold text-green-500">{fmt(displayIncome)}</p></div>
         <div className="card p-3"><p className="text-xs text-slate-400 mb-0.5">이번 달 지출</p><p className="text-base font-bold text-red-500">{fmt(totalExpense)}</p></div>
       </div>
       {/* 병원경비 / 가계 / 개인 / 저축 */}
@@ -293,14 +312,7 @@ export default function ExpensesPage() {
           {/* 경영 지표 */}
           <div className="card p-4">
             <h3 className="font-semibold text-slate-800 mb-1 text-sm">📈 경영 지표 (병원 경비)</h3>
-            <p className="text-[11px] text-slate-400 mb-3">이번 달 매출을 입력하면 매출 대비 비율과 순이익을 계산합니다</p>
-            <div className="flex items-center gap-2 mb-3">
-              <input type="text" inputMode="numeric" placeholder="이번 달 매출 입력"
-                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
-                value={monthRevenue ? Number(monthRevenue).toLocaleString() : ''}
-                onChange={e => saveRevenue(e.target.value.replace(/[^0-9]/g, ''))} />
-              <span className="text-xs text-slate-400">원</span>
-            </div>
+            <p className="text-[11px] text-slate-400 mb-3">위쪽 &apos;이번 달 총 매출&apos; 입력 시 매출 대비 비율과 순이익을 계산합니다</p>
             {revenueNum > 0 ? (
               <>
                 <div className="grid grid-cols-2 gap-3 mb-3">
