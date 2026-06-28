@@ -19,6 +19,50 @@ export const EXPENSE_CATEGORIES = [
   { value: '개인 보험', label: '개인 보험', group: '생활비', color: '#FCD34D' },
 ]
 
+// ===== 가계부 분류 마스터 (scope: hospital 병원경비 / household 가계 / personal 개인) =====
+export type BudgetScope = 'hospital' | 'household' | 'personal'
+export const SCOPE_LABEL: Record<BudgetScope, string> = { hospital: '병원 경비', household: '가계', personal: '개인' }
+
+export const BUDGET_CATEGORIES: { value: string; scope: BudgetScope; saving?: boolean; color: string }[] = [
+  // 병원 경비
+  { value: '직원', scope: 'hospital', color: '#3B82F6' },
+  { value: '임대료', scope: 'hospital', color: '#8B5CF6' },
+  { value: '기공료', scope: 'hospital', color: '#F59E0B' },
+  { value: '재료비', scope: 'hospital', color: '#10B981' },
+  { value: '관리비', scope: 'hospital', color: '#06B6D4' },
+  { value: '마케팅', scope: 'hospital', color: '#F97316' },
+  { value: '노무, 세무', scope: 'hospital', color: '#84CC16' },
+  { value: '대출 이자', scope: 'hospital', color: '#EF4444' },
+  { value: '임플란트 할부', scope: 'hospital', color: '#EC4899' },
+  { value: '세미나', scope: 'hospital', color: '#14B8A6' },
+  { value: '인터넷 요금', scope: 'hospital', color: '#6366F1' },
+  { value: '치과 보험', scope: 'hospital', color: '#D946EF' },
+  { value: '경조사비', scope: 'hospital', color: '#F43F5E' },
+  { value: '병원 지출 카드', scope: 'hospital', color: '#0EA5E9' },
+  { value: '병원 경비 카드', scope: 'hospital', color: '#0284C7' },
+  { value: '세금', scope: 'hospital', color: '#64748B' },
+  { value: '대출', scope: 'hospital', color: '#A855F7' },
+  { value: '기타', scope: 'hospital', color: '#9CA3AF' },
+  // 가계
+  { value: '여행', scope: 'household', color: '#22C55E' },
+  { value: '집', scope: 'household', color: '#0D9488' },
+  { value: '저축', scope: 'household', saving: true, color: '#6366F1' },
+  { value: '주식', scope: 'household', saving: true, color: '#8B5CF6' },
+  { value: '노란우산', scope: 'household', saving: true, color: '#F59E0B' },
+  // 개인
+  { value: '개인 사용', scope: 'personal', color: '#34D399' },
+  { value: '개인 보험', scope: 'personal', color: '#FCD34D' },
+]
+
+// 예전 분류명 → 새 분류명 별칭
+const CAT_ALIAS: Record<string, string> = { '생활비 카드': '병원 경비 카드', '노란 우산': '노란우산' }
+const CAT_MAP = Object.fromEntries(BUDGET_CATEGORIES.map(c => [c.value, c]))
+export const normalizeCat = (cat?: string) => (cat && CAT_ALIAS[cat]) || cat || '기타'
+export const catInfo = (cat?: string) => CAT_MAP[normalizeCat(cat)]
+export const catScopeOf = (cat?: string): BudgetScope => catInfo(cat)?.scope || 'hospital'
+export const catSavingOf = (cat?: string) => !!catInfo(cat)?.saving
+export const catColorOf2 = (cat?: string) => catInfo(cat)?.color || '#9CA3AF'
+
 export const INCOME_CATEGORIES = [
   { value: '진료 수입', label: '진료 수입', color: '#10B981' },
   { value: '임플란트', label: '임플란트', color: '#3B82F6' },

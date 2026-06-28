@@ -39,24 +39,24 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-slate-200 rounded-xl shadow-xl p-3 w-64">
-            <div className="flex items-center justify-between mb-2">
+          <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-slate-200 rounded-xl shadow-xl p-4 w-96">
+            <div className="flex items-center justify-between mb-3">
               <button type="button" onClick={() => setCalMonth(subMonths(calMonth, 1))}
-                className="p-1 hover:bg-slate-100 rounded transition-colors">
-                <ChevronLeft size={14} className="text-slate-600" />
+                className="p-1.5 hover:bg-slate-100 rounded transition-colors">
+                <ChevronLeft size={20} className="text-slate-600" />
               </button>
-              <span className="text-xs font-semibold text-slate-700">{format(calMonth, 'yyyy년 M월')}</span>
+              <span className="text-sm font-semibold text-slate-700">{format(calMonth, 'yyyy년 M월')}</span>
               <button type="button" onClick={() => setCalMonth(addMonths(calMonth, 1))}
-                className="p-1 hover:bg-slate-100 rounded transition-colors">
-                <ChevronRight size={14} className="text-slate-600" />
+                className="p-1.5 hover:bg-slate-100 rounded transition-colors">
+                <ChevronRight size={20} className="text-slate-600" />
               </button>
             </div>
-            <div className="grid grid-cols-7 mb-1">
+            <div className="grid grid-cols-7 mb-1.5">
               {WEEKDAYS.map((d, i) => (
-                <div key={d} className={`text-center text-[10px] font-medium py-0.5 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{d}</div>
+                <div key={d} className={`text-center text-xs font-medium py-1 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{d}</div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-y-0.5">
+            <div className="grid grid-cols-7 gap-y-1">
               {Array(startPad).fill(null).map((_, i) => <div key={`p${i}`} />)}
               {days.map(day => {
                 const ds = format(day, 'yyyy-MM-dd')
@@ -64,7 +64,7 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
                 const dow = getDay(day)
                 return (
                   <button key={ds} type="button" onClick={() => selectDay(day)}
-                    className={`text-[11px] w-full aspect-square rounded flex items-center justify-center transition-colors ${
+                    className={`text-sm w-full aspect-square rounded-lg flex items-center justify-center transition-colors ${
                       isSelected ? 'bg-blue-500 text-white font-bold' :
                       dow === 0 ? 'text-red-400 hover:bg-red-50' :
                       dow === 6 ? 'text-blue-400 hover:bg-blue-50' :

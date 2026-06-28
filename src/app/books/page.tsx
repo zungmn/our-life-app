@@ -35,8 +35,18 @@ export default function BooksPage() {
   const [coverPreview, setCoverPreview] = useState<string>('')
 
   const fetchBooks = async () => {
-    const { data } = await supabase.from('books').select('*').order('created_at', { ascending: false })
+    // 목록은 큰 텍스트(notes, quote) 제외하고 빠르게 로드
+    const { data } = await supabase.from('books')
+      .select('id, title, author, cover_url, status, rating, genre, date_started, date_finished, created_at')
+      .order('created_at', { ascending: false })
     setBooks(data || [])
+  }
+
+  // 상세 열 때 notes/quote 지연 로드
+  const openDetail = async (book: Book) => {
+    setSelected(book)
+    const { data } = await supabase.from('books').select('notes, quote').eq('id', book.id).single()
+    if (data) setSelected(s => (s && s.id === book.id ? { ...s, ...data } : s))
   }
 
   useEffect(() => { fetchBooks() }, [])
@@ -302,7 +312,7 @@ export default function BooksPage() {
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">📖 읽는 중</h3>
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {reading.map(book => (
-                  <button key={book.id} onClick={() => setSelected(book)} className="flex-shrink-0 text-left hover:opacity-80 transition-opacity">
+                  <button key={book.id} onClick={() => openDetail(book)} className="flex-shrink-0 text-left hover:opacity-80 transition-opacity">
                     <BookCover book={book} size="lg" />
                     <p className="text-[11px] font-semibold text-slate-800 mt-1.5 w-[168px] truncate">{book.title}</p>
                     {book.author && <p className="text-[10px] text-slate-400 w-[168px] truncate">{book.author}</p>}
@@ -318,7 +328,7 @@ export default function BooksPage() {
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">✅ 완독 ({completed.length})</h3>
               <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-1.5">
                 {completed.map(book => (
-                  <button key={book.id} onClick={() => setSelected(book)} className="text-left hover:opacity-80 transition-opacity">
+                  <button key={book.id} onClick={() => openDetail(book)} className="text-left hover:opacity-80 transition-opacity">
                     <BookCover book={book} size="md" />
                     <p className="text-[11px] font-semibold text-slate-800 mt-1 truncate">{book.title}</p>
                     <StarRow rating={book.rating} size={10} />
@@ -333,7 +343,7 @@ export default function BooksPage() {
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">🔖 읽고 싶은 ({wantToRead.length})</h3>
               <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-1.5">
                 {wantToRead.map(book => (
-                  <button key={book.id} onClick={() => setSelected(book)} className="text-left hover:opacity-80 transition-opacity">
+                  <button key={book.id} onClick={() => openDetail(book)} className="text-left hover:opacity-80 transition-opacity">
                     <BookCover book={book} size="md" />
                     <p className="text-[11px] font-semibold text-slate-800 mt-1 truncate">{book.title}</p>
                   </button>
@@ -367,7 +377,7 @@ export default function BooksPage() {
           ) : (
             <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-1.5">
               {currentYearBooks.map((book, idx) => (
-                <button key={book.id} onClick={() => setSelected(book)} className="text-left hover:opacity-80 transition-opacity">
+                <button key={book.id} onClick={() => openDetail(book)} className="text-left hover:opacity-80 transition-opacity">
                   {idx < 3 && <div className="text-[10px] font-bold text-amber-500 mb-0.5">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</div>}
                   <BookCover book={book} size="md" />
                   <p className="text-[11px] font-semibold text-slate-800 mt-1 truncate">{book.title}</p>
