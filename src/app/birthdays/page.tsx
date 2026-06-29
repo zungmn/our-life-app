@@ -246,15 +246,17 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
               const year = calMonth.getFullYear()
               const firstDay = new Date(year, m - 1, 1)
               const pad = (firstDay.getDay() + 6) % 7
+              const daysInMonth = new Date(year, m, 0).getDate()
+              const weeks = Math.ceil((pad + daysInMonth) / 7)
               const gridStart = new Date(year, m - 1, 1 - pad)
-              return Array.from({ length: 42 }, (_, i) => {
+              return Array.from({ length: weeks * 7 }, (_, i) => {
                 const cur = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i)
                 const inMonth = cur.getMonth() === m - 1
                 const mm = String(cur.getMonth() + 1).padStart(2, '0')
                 const dd = String(cur.getDate()).padStart(2, '0')
                 const bds = birthdays.filter(b => b.birthday === `${mm}-${dd}`)
                 const dow = cur.getDay()
-                const isLast = i >= 35
+                const isLast = i >= (weeks - 1) * 7
                 return (
                   <div key={i} className={`min-h-[100px] p-1 border-b border-r border-slate-50 ${isLast ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
                     <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${!inMonth ? 'text-slate-300' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{cur.getDate()}</div>

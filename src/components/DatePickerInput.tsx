@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import DateInput from './DateInput'
-import { format, startOfMonth, getDay, addMonths, subMonths, subDays, addDays, isSameMonth } from 'date-fns'
+import { format, startOfMonth, endOfMonth, getDay, addMonths, subMonths, subDays, addDays, isSameMonth } from 'date-fns'
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -17,10 +17,12 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
   const safeDate = value && value.length >= 7 ? new Date(value.slice(0, 7) + '-01') : new Date()
   const [calMonth, setCalMonth] = useState(safeDate)
 
-  // 6주(42칸) 그리드: 이번 달 + 앞뒤 빈칸을 전/다음 달 날짜로 채움
+  // 필요한 만큼(5주/6주)만: 이번 달 + 앞뒤 빈칸을 전/다음 달 날짜로 채움
   const monthStart = startOfMonth(calMonth)
-  const gridStart = subDays(monthStart, getDay(monthStart))
-  const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
+  const leadPad = getDay(monthStart)
+  const weeks = Math.ceil((leadPad + endOfMonth(calMonth).getDate()) / 7)
+  const gridStart = subDays(monthStart, leadPad)
+  const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i))
 
   const selectDay = (d: Date) => {
     onChange(format(d, 'yyyy-MM-dd'))

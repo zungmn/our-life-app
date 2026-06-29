@@ -70,8 +70,11 @@ export default function ExpensesPage() {
     return () => window.removeEventListener('viewer-change', handler)
   }, [])
 
-  const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd')
-  const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd')
+  // 캘린더 그리드(전/다음 달 포함) 범위
+  const monthStartD = startOfMonth(currentDate)
+  const gridStart = subDays(monthStartD, getDay(monthStartD))
+  const monthStart = format(gridStart, 'yyyy-MM-dd')
+  const monthEnd = format(addDays(gridStart, 41), 'yyyy-MM-dd')
 
   const fetchData = useCallback(async () => {
     const v = (localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy'
@@ -142,12 +145,14 @@ export default function ExpensesPage() {
   useEffect(() => { setMonthRevenue(localStorage.getItem(`clinic_revenue_${format(currentDate, 'yyyy-MM')}`) || '') }, [currentDate])
   const saveRevenue = (v: string) => { setMonthRevenue(v); if (v) localStorage.setItem(revKey, v); else localStorage.removeItem(revKey) }
 
-  // 통합 항목 & 합계
+  // 통합 항목 (캘린더는 그리드 전체, 합계는 이번 달만)
   const monthItems: CalItem[] = [...transactions.map(txToItem), ...clinicCal.map(cfToItem)]
+  const ym = format(currentDate, 'yyyy-MM')
+  const curMonthItems = monthItems.filter(i => i.date.slice(0, 7) === ym)
   const sum = (arr: CalItem[]) => arr.reduce((s, i) => s + i.amount, 0)
-  const incomeItems = monthItems.filter(i => i.type === 'income')
-  const expenseItems = monthItems.filter(i => i.type === 'expense' && !i.is_saving)
-  const savingItems = monthItems.filter(i => i.type === 'expense' && i.is_saving)
+  const incomeItems = curMonthItems.filter(i => i.type === 'income')
+  const expenseItems = curMonthItems.filter(i => i.type === 'expense' && !i.is_saving)
+  const savingItems = curMonthItems.filter(i => i.type === 'expense' && i.is_saving)
   const totalIncome = sum(incomeItems)
   const totalExpense = sum(expenseItems)
   const totalSaving = sum(savingItems)
@@ -293,10 +298,9 @@ export default function ExpensesPage() {
   const anaHousehold = buildAnalysis(i => i.type === 'expense' && !i.is_saving && i.scope === 'household')
   const anaSaving = buildAnalysis(i => i.type === 'expense' && i.is_saving)
 
-  const monthStartDate = startOfMonth(currentDate)
-  // 캘린더 6주(42칸) 그리드 (일요일 시작) — 앞뒤 빈칸은 전/다음 달 날짜
-  const gridStart = subDays(monthStartDate, getDay(monthStartDate))
-  const gridDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
+  // 캘린더 그리드 (일요일 시작, 필요한 만큼만 5주/6주) — gridStart는 위에서 계산
+  const weeks = Math.ceil((getDay(monthStartD) + endOfMonth(currentDate).getDate()) / 7)
+  const gridDays = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i))
 
   // 분류 옵션 (구분 기준 필터 + 가나다 정렬), 입력값으로 추가 검색
   const scopeCats = BUDGET_CATEGORIES.filter(c => c.scope === form.scope).map(c => c.value).sort((a, b) => a.localeCompare(b, 'ko'))
@@ -417,7 +421,7 @@ export default function ExpensesPage() {
               const inMonth = isSameMonth(day, currentDate)
               const items = monthItems.filter(it => it.date === ds)
               const dow = getDay(day)
-              const isLastRow = i >= 35
+              const isLastRow = i >= (weeks - 1) * 7
               const shown = items.slice(0, 6)
               const hiddenCount = items.length - shown.length
               return (

@@ -45,17 +45,20 @@ export default function CalendarPage() {
   const [dragId, setDragId] = useState<string | null>(null)
 
   const monthStart = startOfMonth(currentDate)
-  const monthEnd = endOfMonth(currentDate)
-  // 월요일 시작 6주(42칸) 그리드 — 앞뒤 빈칸은 전/다음 달 날짜로 채움
-  const gridStart = subDays(monthStart, (getDay(monthStart) + 6) % 7)
-  const gridDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
+  // 월요일 시작, 필요한 만큼만(5주 또는 6주) — 앞뒤 빈칸은 전/다음 달 날짜로 채움
+  const leadPad = (getDay(monthStart) + 6) % 7
+  const weeks = Math.ceil((leadPad + endOfMonth(currentDate).getDate()) / 7)
+  const gridStart = subDays(monthStart, leadPad)
+  const gridDays = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i))
 
   const fetchEvents = useCallback(async () => {
+    const gs = subDays(startOfMonth(currentDate), (getDay(startOfMonth(currentDate)) + 6) % 7)
+    const ge = addDays(gs, 41)
     const { data } = await supabase
       .from('events')
       .select('*')
-      .gte('date', format(monthStart, 'yyyy-MM-dd'))
-      .lte('date', format(monthEnd, 'yyyy-MM-dd'))
+      .gte('date', format(gs, 'yyyy-MM-dd'))
+      .lte('date', format(ge, 'yyyy-MM-dd'))
       .order('date', { ascending: true })
     setEvents(data || [])
   }, [currentDate])
@@ -199,7 +202,7 @@ export default function CalendarPage() {
             const isSelected = selectedDate === dateStr
             const today = isToday(day)
             const dayOfWeek = getDay(day)
-            const isLastRow = i >= 35
+            const isLastRow = i >= (weeks - 1) * 7
 
             return (
               <div

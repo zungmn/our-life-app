@@ -68,12 +68,14 @@ export default function Home() {
   }
 
   const fetchAll = useCallback(async () => {
-    const monthStart = format(startOfMonth(calDate), 'yyyy-MM-dd')
-    const monthEnd = format(endOfMonth(calDate), 'yyyy-MM-dd')
+    // 캘린더 그리드(전/다음 달 포함) 범위로 일정 로드
+    const ms = startOfMonth(calDate)
+    const gs = subDays(ms, (getDay(ms) + 6) % 7)
+    const ge = addDays(gs, 41)
     const [todosRes, projectsRes, eventsRes] = await Promise.all([
       supabase.from('todos').select('*').order('deadline', { ascending: true, nullsFirst: false }),
       supabase.from('projects').select('*').order('created_at', { ascending: true }),
-      supabase.from('events').select('*').gte('date', monthStart).lte('date', monthEnd),
+      supabase.from('events').select('*').gte('date', format(gs, 'yyyy-MM-dd')).lte('date', format(ge, 'yyyy-MM-dd')),
     ])
     setTodos(todosRes.data || [])
     setProjects(projectsRes.data || [])
@@ -237,8 +239,10 @@ export default function Home() {
   }
 
   const monthStart = startOfMonth(calDate)
-  const gridStart = subDays(monthStart, (getDay(monthStart) + 6) % 7)
-  const gridDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
+  const leadPad = (getDay(monthStart) + 6) % 7
+  const weeks = Math.ceil((leadPad + endOfMonth(calDate).getDate()) / 7)
+  const gridStart = subDays(monthStart, leadPad)
+  const gridDays = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i))
   const dayEvents = (date: Date) => {
     const ds = format(date, 'yyyy-MM-dd')
     return sortEvents(events.filter(e => {
@@ -396,7 +400,7 @@ export default function Home() {
             const isSelected = selectedDate === dateStr
             const todayMark = isToday(day)
             const dow = getDay(day)
-            const isLastRow = i >= 35
+            const isLastRow = i >= (weeks - 1) * 7
             return (
               <div key={dateStr} onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                 onDragOver={e => { if (dragId) e.preventDefault() }}
