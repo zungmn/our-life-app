@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import { supabase, ArchiveItem } from '@/lib/supabase'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Plus, X, Trash2, FolderOpen, ExternalLink, Paperclip } from 'lucide-react'
-import DateInput from '@/components/DateInput'
+import { Plus, X, Trash2, FolderOpen, ExternalLink, Paperclip, Download } from 'lucide-react'
+import DatePickerInput from '@/components/DatePickerInput'
 
-const CATEGORIES = ['사진', '기록증/수료증', '건강', '재정', '마라톤', '기타']
+const CATEGORIES = ['사진', '기록증/수료증', '건강', '재정', '마라톤', '청첩장', '기타']
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 
 export default function ArchivePage() {
@@ -16,6 +16,9 @@ export default function ArchivePage() {
   const [filterCat, setFilterCat] = useState('전체')
   const [showModal, setShowModal] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [catOpen, setCatOpen] = useState(false)
+  const [inviteYear, setInviteYear] = useState(new Date().getFullYear() - 1) // 기본: 작년
+  const [downloading, setDownloading] = useState(false)
   const [form, setForm] = useState({ title: '', category: '기타', file_url: '', note: '', item_date: TODAY })
 
   const fetchItems = async () => {
@@ -67,6 +70,46 @@ export default function ArchivePage() {
   const displayed = filterCat === '전체' ? items : items.filter(i => i.category === filterCat)
   const isImage = (url: string) => /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(url)
 
+  // 청첩장 연도 선택지
+  const inviteYears = [...new Set(items.filter(i => i.category === '청첩장' && (i as any).item_date).map(i => new Date((i as any).item_date).getFullYear()))].sort((a, b) => b - a)
+
+  // 청첩장 일괄 다운로드 (파일명 mmdd, 같은 날 여러 개면 mmdd(1), (2)...)
+  const handleDownloadInvites = async () => {
+    const list = items
+      .filter(i => i.category === '청첩장' && i.file_url && (i as any).item_date && new Date((i as any).item_date).getFullYear() === inviteYear)
+      .sort((a, b) => String((a as any).item_date).localeCompare(String((b as any).item_date)))
+    if (list.length === 0) { alert(`${inviteYear}년 청첩장 첨부파일이 없어요`); return }
+    setDownloading(true)
+    const byDate: Record<string, typeof list> = {}
+    for (const it of list) {
+      const d = new Date((it as any).item_date)
+      const mmdd = String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0')
+      ;(byDate[mmdd] = byDate[mmdd] || []).push(it)
+    }
+    for (const mmdd of Object.keys(byDate)) {
+      const arr = byDate[mmdd]
+      for (let idx = 0; idx < arr.length; idx++) {
+        const url = arr[idx].file_url!
+        const ext = (url.split('?')[0].split('.').pop() || 'jpg').toLowerCase()
+        const name = arr.length > 1 ? `${mmdd}(${idx + 1}).${ext}` : `${mmdd}.${ext}`
+        try {
+          const res = await fetch(url)
+          const blob = await res.blob()
+          const objUrl = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = objUrl; a.download = name
+          document.body.appendChild(a); a.click(); a.remove()
+          URL.revokeObjectURL(objUrl)
+          await new Promise(r => setTimeout(r, 300))
+        } catch {
+          // 실패 시 새 탭으로라도 열기
+          window.open(url, '_blank')
+        }
+      }
+    }
+    setDownloading(false)
+  }
+
   return (
     <div className="p-6 md:p-10 max-w-full mx-auto">
       <div className="flex items-center justify-between mb-4">
@@ -88,6 +131,21 @@ export default function ArchivePage() {
           </button>
         ))}
       </div>
+
+      {/* 청첩장: 연도별 일괄 다운로드 */}
+      {filterCat === '청첩장' && (
+        <div className="card p-3 mb-4 flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-slate-600 flex-1">청첩장 일괄 다운로드 (파일명: 월일 mmdd)</span>
+          <select value={inviteYear} onChange={e => setInviteYear(Number(e.target.value))}
+            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-teal-400">
+            {(inviteYears.length ? inviteYears : [inviteYear]).map(y => <option key={y} value={y}>{y}년</option>)}
+          </select>
+          <button onClick={handleDownloadInvites} disabled={downloading}
+            className="flex items-center gap-1 bg-teal-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-teal-600 disabled:opacity-50 transition-colors">
+            <Download size={15} /> {downloading ? '다운로드 중...' : '다운로드'}
+          </button>
+        </div>
+      )}
 
       {displayed.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
@@ -165,16 +223,29 @@ export default function ArchivePage() {
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-slate-500 mb-1 block">분류</label>
-                  <select className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-400"
-                    value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                    {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
+                <div className="relative">
+                  <label className="text-xs text-slate-500 mb-1 block">분류 (검색/선택)</label>
+                  <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-400"
+                    placeholder="입력하거나 선택" value={form.category}
+                    onFocus={() => setCatOpen(true)}
+                    onChange={e => { setCatOpen(true); setForm(f => ({ ...f, category: e.target.value })) }} />
+                  {catOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setCatOpen(false)} />
+                      <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {CATEGORIES.filter(c => !form.category || c.includes(form.category) || CATEGORIES.includes(form.category)).map(c => (
+                          <button key={c} type="button" onClick={() => { setForm(f => ({ ...f, category: c })); setCatOpen(false) }}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-teal-50 transition-colors ${form.category === c ? 'text-teal-600 font-medium' : 'text-slate-700'}`}>
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs text-slate-500 mb-1 block">날짜</label>
-                  <DateInput value={form.item_date} onChange={v => setForm(f => ({ ...f, item_date: v }))} className="w-full" />
+                  <DatePickerInput value={form.item_date} onChange={v => setForm(f => ({ ...f, item_date: v }))} className="w-full" />
                 </div>
               </div>
               <div>

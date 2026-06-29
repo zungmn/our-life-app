@@ -39,7 +39,6 @@ export const BUDGET_CATEGORIES: { value: string; scope: BudgetScope; saving?: bo
   { value: '치과 보험', scope: 'hospital', color: '#D946EF' },
   { value: '경조사비', scope: 'hospital', color: '#F43F5E' },
   { value: '병원 지출 카드', scope: 'hospital', color: '#0EA5E9' },
-  { value: '병원 경비 카드', scope: 'hospital', color: '#0284C7' },
   { value: '세금', scope: 'hospital', color: '#64748B' },
   { value: '대출', scope: 'hospital', color: '#A855F7' },
   { value: '기타', scope: 'hospital', color: '#9CA3AF' },
@@ -57,7 +56,7 @@ export const BUDGET_CATEGORIES: { value: string; scope: BudgetScope; saving?: bo
 ]
 
 // 예전 분류명 → 새 분류명 별칭
-const CAT_ALIAS: Record<string, string> = { '생활비 카드': '병원 경비 카드', '노란 우산': '노란우산' }
+const CAT_ALIAS: Record<string, string> = { '생활비 카드': '병원 지출 카드', '병원 경비 카드': '병원 지출 카드', '노란 우산': '노란우산' }
 const CAT_MAP = Object.fromEntries(BUDGET_CATEGORIES.map(c => [c.value, c]))
 export const normalizeCat = (cat?: string) => (cat && CAT_ALIAS[cat]) || cat || '기타'
 export const catInfo = (cat?: string) => CAT_MAP[normalizeCat(cat)]

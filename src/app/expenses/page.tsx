@@ -52,6 +52,8 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(false)
   const [catOpen, setCatOpen] = useState(false)
   const [uploadName, setUploadName] = useState('')
+  const [statPeriod, setStatPeriod] = useState<'month' | 'year'>('month')
+  const [yearItemsRaw, setYearItemsRaw] = useState<CalItem[]>([])
   const [monthRevenue, setMonthRevenue] = useState('')
   const [form, setForm] = useState({
     date: format(new Date(), 'yyyy-MM-dd'), type: 'expense' as 'income' | 'expense',
@@ -81,6 +83,43 @@ export default function ExpensesPage() {
   }, [currentDate, viewer])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // 연간 통계용 데이터
+  const fetchYear = useCallback(async () => {
+    const v = (localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy'
+    const y = currentDate.getFullYear()
+    const ys = `${y}-01-01`, ye = `${y}-12-31`
+    const tx = await supabase.from('transactions').select('*').gte('date', ys).lte('date', ye).or(`owner.eq.${v},owner.is.null`)
+    let items: CalItem[] = (tx.data || []).map(txToItem)
+    if (v === 'eddy') {
+      const cf = await supabase.from('clinic_finance').select('*').gte('date', ys).lte('date', ye)
+      items = [...items, ...(cf.data || []).map(cfToItem)]
+    }
+    setYearItemsRaw(items)
+  }, [currentDate, viewer])
+  useEffect(() => { if (tab === 'stats' && statPeriod === 'year') fetchYear() }, [tab, statPeriod, fetchYear])
+
+  // 덴트웹 파일에서 총 매출 자동 인식 (csv/html/텍스트)
+  const handleRevenueFile = async (file: File) => {
+    setUploadName(file.name)
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (ext === 'xlsx' || ext === 'xls') {
+      alert('엑셀(xlsx)은 아직 자동 인식이 어려워요. CSV/HTML로 저장해 올리거나 총 매출을 직접 입력해 주세요. (샘플 주시면 엑셀도 맞춰드립니다)')
+      return
+    }
+    const text = await file.text()
+    const plain = text.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ')
+    const toN = (s: string) => parseInt(s.replace(/[^0-9]/g, ''), 10)
+    let found = 0
+    const m = plain.match(/(총\s*매출|매출\s*합계|총\s*진료비|총\s*수납|총\s*수입|합\s*계)[^\d]{0,14}([\d,]{4,})/)
+    if (m) found = toN(m[2])
+    if (!found) {
+      const days = [...plain.matchAll(/일\s*매출[^\d]{0,8}([\d,]{4,})/g)].map(x => toN(x[1]))
+      if (days.length) found = days.reduce((a, b) => a + b, 0)
+    }
+    if (found > 0) { saveRevenue(String(found)); alert(`총 매출 ${found.toLocaleString()}원으로 인식했습니다.`) }
+    else alert('총 매출을 자동 인식하지 못했어요. 파일 형식(샘플)을 알려주시면 맞춰드릴게요. 우선 위에 직접 입력해 주세요.')
+  }
 
   // 이번 달 매출 (통계용) localStorage
   const revKey = `clinic_revenue_${format(currentDate, 'yyyy-MM')}`
@@ -151,34 +190,48 @@ export default function ExpensesPage() {
     setShowModal(false); setEditItem(null); setEditClinicItem(null)
   }
 
-  // ===== 통계 =====
-  const revenueNum = toNum(monthRevenue)
+  // ===== 통계 (월간/연간) =====
   const pctOf = (v: number, base: number) => base > 0 ? Math.round(v / base * 1000) / 10 : 0
-  // scope별 분류 분석
+  // 임대료+관리비는 합쳐서 표시
+  const mergeRent = (c: string) => (c === '관리비' || c === '임대료') ? '임대료+관리비' : c
+  const statBase = statPeriod === 'year' ? yearItemsRaw : monthItems
+  const statExpense = statBase.filter(i => i.type === 'expense' && !i.is_saving)
+  const statSaving = statBase.filter(i => i.type === 'expense' && i.is_saving)
+  const statTotalSaving = sum(statSaving)
+  // 연간 매출 = 해당 연도 월별 localStorage 합
+  const annualRevenue = (() => {
+    if (typeof window === 'undefined') return 0
+    const y = currentDate.getFullYear()
+    let t = 0
+    for (let mo = 1; mo <= 12; mo++) t += toNum(localStorage.getItem(`clinic_revenue_${y}-${String(mo).padStart(2, '0')}`) || '0')
+    return t
+  })()
+  const revenueNum = statPeriod === 'year' ? annualRevenue : toNum(monthRevenue)
+  // scope별 분류 분석 (임대료+관리비 병합)
   const scopeBreakdown = (s: BudgetScope) => {
-    const items = expenseItems.filter(i => i.scope === s)
+    const items = statExpense.filter(i => i.scope === s)
     const map: Record<string, number> = {}
-    for (const i of items) map[i.category] = (map[i.category] || 0) + i.amount
+    for (const i of items) { const k = mergeRent(i.category); map[k] = (map[k] || 0) + i.amount }
     const total = sum(items)
-    const cats = Object.entries(map).map(([name, value]) => ({ name, value, color: catColorOf2(name), pct: pctOf(value, total) })).sort((a, b) => b.value - a.value)
+    const cats = Object.entries(map).map(([name, value]) => ({ name, value, color: catColorOf2(name === '임대료+관리비' ? '임대료' : name), pct: pctOf(value, total) })).sort((a, b) => b.value - a.value)
     return { total, cats }
   }
   const savingBreakdown = (() => {
     const map: Record<string, number> = {}
-    for (const i of savingItems) map[i.category] = (map[i.category] || 0) + i.amount
+    for (const i of statSaving) map[i.category] = (map[i.category] || 0) + i.amount
     return Object.entries(map).map(([name, value]) => ({ name, value, color: catColorOf2(name) })).sort((a, b) => b.value - a.value)
   })()
   // 경영 지표 (병원 경비 기준)
-  const hospitalCatAmt = (name: string) => expenseItems.filter(i => i.scope === 'hospital' && i.category === name).reduce((s, i) => s + i.amount, 0)
-  const hospitalTotal = scopeTotal('hospital')
+  const hospCatAmt = (name: string) => statExpense.filter(i => i.scope === 'hospital' && i.category === name).reduce((s, i) => s + i.amount, 0)
+  const hospitalTotal = sum(statExpense.filter(i => i.scope === 'hospital'))
   const netProfit = revenueNum - hospitalTotal
   const netMargin = pctOf(netProfit, revenueNum)
   const mgmtRatios = [
-    { label: '인건비(직원)', val: hospitalCatAmt('직원'), healthy: 30, note: '25~30%' },
-    { label: '기공료', val: hospitalCatAmt('기공료'), healthy: 12, note: '8~12%' },
-    { label: '재료비', val: hospitalCatAmt('재료비'), healthy: 12, note: '8~12%' },
-    { label: '임대료', val: hospitalCatAmt('임대료'), healthy: 7, note: '5~7%' },
-    { label: '마케팅', val: hospitalCatAmt('마케팅'), healthy: 7, note: '3~7%' },
+    { label: '인건비(직원)', val: hospCatAmt('직원'), healthy: 30, note: '25~30%' },
+    { label: '기공료', val: hospCatAmt('기공료'), healthy: 12, note: '8~12%' },
+    { label: '재료비', val: hospCatAmt('재료비'), healthy: 12, note: '8~12%' },
+    { label: '임대료+관리비', val: hospCatAmt('임대료') + hospCatAmt('관리비'), healthy: 9, note: '7~9%' },
+    { label: '마케팅', val: hospCatAmt('마케팅'), healthy: 7, note: '3~7%' },
   ]
 
   const monthStartDate = startOfMonth(currentDate)
@@ -250,7 +303,7 @@ export default function ExpensesPage() {
             <label className="flex-shrink-0 text-xs px-3 py-2 rounded-lg cursor-pointer border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
               파일 업로드
               <input type="file" accept=".xlsx,.xls,.csv,.html,.htm" className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) setUploadName(f.name) }} />
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleRevenueFile(f) }} />
             </label>
           </div>
           {uploadName && <p className="text-[11px] text-slate-400 mt-1">📎 {uploadName} · 자동 인식 연동 예정 (지금은 위에 직접 입력)</p>}
@@ -316,10 +369,19 @@ export default function ExpensesPage() {
       {/* Stats */}
       {tab === 'stats' && (
         <div className="space-y-4">
+          {/* 월간 / 연간 토글 */}
+          <div className="flex gap-1">
+            {([['month', `${format(currentDate, 'M월')} 월간`], ['year', `${currentDate.getFullYear()}년 연간`]] as const).map(([k, l]) => (
+              <button key={k} onClick={() => setStatPeriod(k)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statPeriod === k ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
+                {l}
+              </button>
+            ))}
+          </div>
           {/* 경영 지표 */}
           <div className="card p-4">
             <h3 className="font-semibold text-slate-800 mb-1 text-sm">📈 경영 지표 (병원 경비)</h3>
-            <p className="text-[11px] text-slate-400 mb-3">위쪽 &apos;이번 달 총 매출&apos; 입력 시 매출 대비 비율과 순이익을 계산합니다</p>
+            <p className="text-[11px] text-slate-400 mb-3">{statPeriod === 'year' ? '연간(해당 연도 월별 매출 합계) 기준' : "위쪽 '이번 달 총 매출' 입력 시 매출 대비 비율과 순이익을 계산합니다"}</p>
             {revenueNum > 0 ? (
               <>
                 <div className="grid grid-cols-2 gap-3 mb-3">
@@ -392,7 +454,7 @@ export default function ExpensesPage() {
             <div className="card p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-slate-800 text-sm">저축</h3>
-                <span className="text-sm font-bold text-indigo-600">{fmt(totalSaving)}</span>
+                <span className="text-sm font-bold text-indigo-600">{fmt(statTotalSaving)}</span>
               </div>
               <div className="space-y-1">
                 {savingBreakdown.map(c => (
