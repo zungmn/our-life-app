@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import DateInput from './DateInput'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns'
+import { format, startOfMonth, getDay, addMonths, subMonths, subDays, addDays, isSameMonth } from 'date-fns'
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -17,13 +17,19 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
   const safeDate = value && value.length >= 7 ? new Date(value.slice(0, 7) + '-01') : new Date()
   const [calMonth, setCalMonth] = useState(safeDate)
 
+  // 6주(42칸) 그리드: 이번 달 + 앞뒤 빈칸을 전/다음 달 날짜로 채움
   const monthStart = startOfMonth(calMonth)
-  const monthEnd = endOfMonth(calMonth)
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
-  const startPad = getDay(monthStart)
+  const gridStart = subDays(monthStart, getDay(monthStart))
+  const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
 
   const selectDay = (d: Date) => {
     onChange(format(d, 'yyyy-MM-dd'))
+    setOpen(false)
+  }
+  const goToday = () => {
+    const t = new Date()
+    setCalMonth(t)
+    onChange(format(t, 'yyyy-MM-dd'))
     setOpen(false)
   }
 
@@ -41,15 +47,22 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-slate-200 rounded-xl shadow-xl p-4 w-96">
             <div className="flex items-center justify-between mb-3">
-              <button type="button" onClick={() => setCalMonth(subMonths(calMonth, 1))}
-                className="p-1.5 hover:bg-slate-100 rounded transition-colors">
-                <ChevronLeft size={20} className="text-slate-600" />
+              <button type="button" onClick={goToday}
+                className="text-xs font-medium text-blue-500 hover:bg-blue-50 rounded-lg px-2.5 py-1 transition-colors">
+                오늘
               </button>
-              <span className="text-sm font-semibold text-slate-700">{format(calMonth, 'yyyy년 M월')}</span>
-              <button type="button" onClick={() => setCalMonth(addMonths(calMonth, 1))}
-                className="p-1.5 hover:bg-slate-100 rounded transition-colors">
-                <ChevronRight size={20} className="text-slate-600" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setCalMonth(subMonths(calMonth, 1))}
+                  className="p-1.5 hover:bg-slate-100 rounded transition-colors">
+                  <ChevronLeft size={20} className="text-slate-600" />
+                </button>
+                <span className="text-sm font-semibold text-slate-700">{format(calMonth, 'yyyy년 M월')}</span>
+                <button type="button" onClick={() => setCalMonth(addMonths(calMonth, 1))}
+                  className="p-1.5 hover:bg-slate-100 rounded transition-colors">
+                  <ChevronRight size={20} className="text-slate-600" />
+                </button>
+              </div>
+              <span className="w-8" />
             </div>
             <div className="grid grid-cols-7 mb-1.5">
               {WEEKDAYS.map((d, i) => (
@@ -57,15 +70,16 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
               ))}
             </div>
             <div className="grid grid-cols-7 gap-y-1">
-              {Array(startPad).fill(null).map((_, i) => <div key={`p${i}`} />)}
-              {days.map(day => {
+              {cells.map(day => {
                 const ds = format(day, 'yyyy-MM-dd')
                 const isSelected = ds === value
+                const inMonth = isSameMonth(day, calMonth)
                 const dow = getDay(day)
                 return (
                   <button key={ds} type="button" onClick={() => selectDay(day)}
                     className={`text-sm w-full aspect-square rounded-lg flex items-center justify-center transition-colors ${
                       isSelected ? 'bg-blue-500 text-white font-bold' :
+                      !inMonth ? 'text-slate-300 hover:bg-slate-50' :
                       dow === 0 ? 'text-red-400 hover:bg-red-50' :
                       dow === 6 ? 'text-blue-400 hover:bg-blue-50' :
                       'text-slate-700 hover:bg-slate-100'

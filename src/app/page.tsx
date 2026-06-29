@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, Event as CalendarEvent, Todo, Project } from '@/lib/supabase'
 import { PERSON_COLORS } from '@/lib/constants'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, differenceInCalendarDays, parseISO, addDays } from 'date-fns'
+import { format, startOfMonth, endOfMonth, getDay, isToday, addMonths, subMonths, differenceInCalendarDays, parseISO, addDays, subDays, isSameMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, X, Trash2, Check, ChevronLeft, ChevronRight, Paperclip } from 'lucide-react'
 import Link from 'next/link'
@@ -237,9 +237,8 @@ export default function Home() {
   }
 
   const monthStart = startOfMonth(calDate)
-  const monthEnd = endOfMonth(calDate)
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
-  const startPad = (getDay(monthStart) + 6) % 7
+  const gridStart = subDays(monthStart, (getDay(monthStart) + 6) % 7)
+  const gridDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
   const dayEvents = (date: Date) => {
     const ds = format(date, 'yyyy-MM-dd')
     return sortEvents(events.filter(e => {
@@ -370,7 +369,10 @@ export default function Home() {
       {/* Calendar */}
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
-          <button onClick={() => setCalDate(subMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg"><ChevronLeft size={20} className="text-slate-600" /></button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCalDate(new Date())} className="text-sm font-medium text-blue-500 hover:bg-blue-50 rounded-lg px-2.5 py-1 transition-colors">오늘</button>
+            <button onClick={() => setCalDate(subMonths(calDate, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg"><ChevronLeft size={20} className="text-slate-600" /></button>
+          </div>
           <h3 className="font-semibold text-slate-800 text-xl">{format(calDate, 'yyyy년 M월')}</h3>
           <div className="flex items-center gap-2">
             <button onClick={() => openAddEvent()} className="flex items-center gap-1 bg-slate-700 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors">
@@ -387,20 +389,20 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-7">
-          {Array(startPad).fill(null).map((_, i) => <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[80px]" />)}
-          {days.map((day, i) => {
+          {gridDays.map((day, i) => {
             const dateStr = format(day, 'yyyy-MM-dd')
+            const inMonth = isSameMonth(day, calDate)
             const de = dayEvents(day)
             const isSelected = selectedDate === dateStr
             const todayMark = isToday(day)
             const dow = getDay(day)
-            const isLastRow = i >= days.length - 7
+            const isLastRow = i >= 35
             return (
               <div key={dateStr} onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                 onDragOver={e => { if (dragId) e.preventDefault() }}
                 onDrop={() => handleEventDrop(dateStr)}
-                className={`border-b border-r border-slate-50 min-h-[80px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${isLastRow ? 'border-b-0' : ''} ${dragId ? 'hover:bg-blue-100' : ''}`}>
-                <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${todayMark ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>
+                className={`border-b border-r border-slate-50 min-h-[80px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${isLastRow ? 'border-b-0' : ''} ${dragId ? 'hover:bg-blue-100' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
+                <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${todayMark ? 'bg-blue-500 text-white' : !inMonth ? 'text-slate-300' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>
                   {format(day, 'd')}
                 </div>
                 <div className="space-y-0.5">

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, Transaction, ClinicFinance } from '@/lib/supabase'
 import { BUDGET_CATEGORIES, INCOME_CATEGORIES, SCOPE_LABEL, BudgetScope, catScopeOf, catSavingOf, catColorOf2, normalizeCat } from '@/lib/constants'
-import { format, startOfMonth, endOfMonth, subMonths, addMonths, eachDayOfInterval, getDay, isToday } from 'date-fns'
+import { format, startOfMonth, endOfMonth, subMonths, addMonths, getDay, isToday, subDays, addDays, isSameMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { Plus, X, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -12,6 +12,7 @@ import DateInput from '@/components/DateInput'
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 const toNum = (s: string) => parseInt((s || '').replace(/[^0-9]/g, '') || '0', 10)
 const fmt = (n: number) => n.toLocaleString() + '원'
+const won = (n: number) => n ? Math.round(n / 10000).toLocaleString() + '만' : '-'
 
 // 통합 캘린더 항목
 type CalItem = {
@@ -54,6 +55,8 @@ export default function ExpensesPage() {
   const [uploadName, setUploadName] = useState('')
   const [statPeriod, setStatPeriod] = useState<'month' | 'year'>('month')
   const [yearItemsRaw, setYearItemsRaw] = useState<CalItem[]>([])
+  const [allItems, setAllItems] = useState<CalItem[]>([])
+  const [ymEdit, setYmEdit] = useState(false)
   const [monthRevenue, setMonthRevenue] = useState('')
   const [form, setForm] = useState({
     date: format(new Date(), 'yyyy-MM-dd'), type: 'expense' as 'income' | 'expense',
@@ -98,6 +101,19 @@ export default function ExpensesPage() {
     setYearItemsRaw(items)
   }, [currentDate, viewer])
   useEffect(() => { if (tab === 'stats' && statPeriod === 'year') fetchYear() }, [tab, statPeriod, fetchYear])
+
+  // 통계 전체 기간 데이터 (월별/연별 개요)
+  const fetchAll = useCallback(async () => {
+    const v = (localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy'
+    const tx = await supabase.from('transactions').select('*').or(`owner.eq.${v},owner.is.null`)
+    let items: CalItem[] = (tx.data || []).map(txToItem)
+    if (v === 'eddy') {
+      const cf = await supabase.from('clinic_finance').select('*')
+      items = [...items, ...(cf.data || []).map(cfToItem)]
+    }
+    setAllItems(items)
+  }, [viewer])
+  useEffect(() => { if (tab === 'stats') fetchAll() }, [tab, fetchAll])
 
   // 덴트웹 파일에서 총 매출 자동 인식 (csv/html/텍스트)
   const handleRevenueFile = async (file: File) => {
@@ -234,10 +250,53 @@ export default function ExpensesPage() {
     { label: '마케팅', val: hospCatAmt('마케팅'), healthy: 7, note: '3~7%' },
   ]
 
+  // ===== 기간별 개요 (월별/연별) =====
+  const periodKey = (d: string) => statPeriod === 'year' ? d.slice(0, 4) : d.slice(0, 7)
+  const periodLabel = (k: string) => statPeriod === 'year' ? `${k}년` : `${k.slice(0, 4)}.${k.slice(5, 7)}`
+  const revenueForPeriod = (k: string) => {
+    if (viewer !== 'eddy' || typeof window === 'undefined') return 0
+    if (statPeriod === 'year') { let r = 0; for (let m = 1; m <= 12; m++) r += toNum(localStorage.getItem(`clinic_revenue_${k}-${String(m).padStart(2, '0')}`) || '0'); return r }
+    return toNum(localStorage.getItem(`clinic_revenue_${k}`) || '0')
+  }
+  type Agg = { key: string; income: number; expense: number; hospital: number; household: number; personal: number; saving: number; revenue: number }
+  const overview: Agg[] = (() => {
+    const map: Record<string, Agg> = {}
+    for (const it of allItems) {
+      const k = periodKey(it.date)
+      const o = map[k] = map[k] || { key: k, income: 0, expense: 0, hospital: 0, household: 0, personal: 0, saving: 0, revenue: 0 }
+      if (it.type === 'income') o.income += it.amount
+      else if (it.is_saving) o.saving += it.amount
+      else { o.expense += it.amount; o[it.scope] += it.amount }
+    }
+    return Object.values(map).map(o => ({ ...o, revenue: revenueForPeriod(o.key), income: o.income + revenueForPeriod(o.key) })).sort((a, b) => a.key < b.key ? 1 : -1)
+  })()
+  // 분류 분석: 최신 기간 vs 직전 기간
+  const curKey = overview[0]?.key
+  const prevKey = overview[1]?.key
+  const catMap = (key: string | undefined, sel: (i: CalItem) => boolean) => {
+    const m: Record<string, number> = {}
+    if (!key) return m
+    for (const it of allItems) { if (periodKey(it.date) !== key || !sel(it)) continue; const n = mergeRent(it.category); m[n] = (m[n] || 0) + it.amount }
+    return m
+  }
+  const buildAnalysis = (sel: (i: CalItem) => boolean) => {
+    const cur = catMap(curKey, sel), prev = catMap(prevKey, sel)
+    const names = [...new Set([...Object.keys(cur), ...Object.keys(prev)])]
+    const curRev = curKey ? revenueForPeriod(curKey) : 0
+    return names.map(name => {
+      const c = cur[name] || 0, p = prev[name] || 0
+      const delta = p > 0 ? Math.round((c - p) / p * 1000) / 10 : null
+      return { name, cur: c, prev: p, delta, revPct: curRev > 0 ? pctOf(c, curRev) : null, color: catColorOf2(name === '임대료+관리비' ? '임대료' : name) }
+    }).filter(x => x.cur > 0 || x.prev > 0).sort((a, b) => b.cur - a.cur)
+  }
+  const anaHospital = buildAnalysis(i => i.type === 'expense' && !i.is_saving && i.scope === 'hospital')
+  const anaHousehold = buildAnalysis(i => i.type === 'expense' && !i.is_saving && i.scope === 'household')
+  const anaSaving = buildAnalysis(i => i.type === 'expense' && i.is_saving)
+
   const monthStartDate = startOfMonth(currentDate)
-  const monthEndDate = endOfMonth(currentDate)
-  const days = eachDayOfInterval({ start: monthStartDate, end: monthEndDate })
-  const startPad = getDay(monthStartDate)
+  // 캘린더 6주(42칸) 그리드 (일요일 시작) — 앞뒤 빈칸은 전/다음 달 날짜
+  const gridStart = subDays(monthStartDate, getDay(monthStartDate))
+  const gridDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
 
   // 분류 옵션 (구분 기준 필터 + 가나다 정렬), 입력값으로 추가 검색
   const scopeCats = BUDGET_CATEGORIES.filter(c => c.scope === form.scope).map(c => c.value).sort((a, b) => a.localeCompare(b, 'ko'))
@@ -264,13 +323,6 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* Month nav */}
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-slate-100 rounded-lg"><ChevronLeft size={20} className="text-slate-600" /></button>
-        <h2 className="text-lg font-semibold text-slate-700">{format(currentDate, 'yyyy년 M월')}</h2>
-        <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-slate-100 rounded-lg"><ChevronRight size={20} className="text-slate-600" /></button>
-      </div>
-
       {/* Tabs */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex gap-1">
@@ -286,6 +338,33 @@ export default function ExpensesPage() {
           <Plus size={14} /> 추가
         </button>
       </div>
+
+      {tab === 'calendar' && (<>
+      {/* Month nav (오늘 + 년/월 직접 선택) */}
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={() => setCurrentDate(new Date())} className="text-sm font-medium text-blue-500 hover:bg-blue-50 rounded-lg px-2.5 py-1 transition-colors">오늘</button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-slate-100 rounded-lg"><ChevronLeft size={20} className="text-slate-600" /></button>
+          <button onClick={() => setYmEdit(v => !v)} className="text-lg font-semibold text-slate-700 hover:bg-slate-100 rounded-lg px-2 py-1 transition-colors">{format(currentDate, 'yyyy년 M월')}</button>
+          <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-slate-100 rounded-lg"><ChevronRight size={20} className="text-slate-600" /></button>
+        </div>
+        <span className="w-10" />
+      </div>
+      {ymEdit && (
+        <div className="card p-3 mb-3 flex items-center gap-2 justify-center">
+          <input type="number" value={currentDate.getFullYear()}
+            onChange={e => { const y = parseInt(e.target.value, 10); if (y > 1900 && y < 3000) setCurrentDate(new Date(y, currentDate.getMonth(), 1)) }}
+            className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:border-blue-400" />
+          <span className="text-sm text-slate-500">년</span>
+          <select value={currentDate.getMonth() + 1}
+            onChange={e => setCurrentDate(new Date(currentDate.getFullYear(), parseInt(e.target.value, 10) - 1, 1))}
+            className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-blue-400">
+            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <span className="text-sm text-slate-500">월</span>
+          <button onClick={() => setYmEdit(false)} className="text-xs bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600">확인</button>
+        </div>
+      )}
 
       {/* 치과 총 매출 입력 (Eddy 전용) */}
       {viewer === 'eddy' && (
@@ -325,27 +404,26 @@ export default function ExpensesPage() {
         ))}
       </div>
 
-      {/* Calendar */}
-      {tab === 'calendar' && (
-        <div className="card overflow-hidden">
+      {/* Calendar grid */}
+      <div className="card overflow-hidden">
           <div className="grid grid-cols-7 border-b border-slate-100">
             {WEEKDAYS.map((d, i) => (
               <div key={d} className={`text-center text-xs font-medium py-2.5 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7">
-            {Array(startPad).fill(null).map((_, i) => <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[110px]" />)}
-            {days.map((day, i) => {
+            {gridDays.map((day, i) => {
               const ds = format(day, 'yyyy-MM-dd')
+              const inMonth = isSameMonth(day, currentDate)
               const items = monthItems.filter(it => it.date === ds)
               const dow = getDay(day)
-              const isLastRow = i >= days.length - 7
+              const isLastRow = i >= 35
               const shown = items.slice(0, 6)
               const hiddenCount = items.length - shown.length
               return (
                 <div key={ds} onClick={() => openAdd(ds)}
-                  className={`border-b border-r border-slate-50 min-h-[110px] p-1 cursor-pointer hover:bg-slate-50/70 transition-colors ${isLastRow ? 'border-b-0' : ''}`}>
-                  <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday(day) ? 'bg-blue-500 text-white' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
+                  className={`border-b border-r border-slate-50 min-h-[110px] p-1 cursor-pointer hover:bg-slate-50/70 transition-colors ${isLastRow ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
+                  <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday(day) ? 'bg-blue-500 text-white' : !inMonth ? 'text-slate-300' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
                   <div className="space-y-0.5">
                     {shown.map(it => (
                       <div key={it.id}
@@ -364,109 +442,86 @@ export default function ExpensesPage() {
             })}
           </div>
         </div>
-      )}
+      </>)}
 
       {/* Stats */}
       {tab === 'stats' && (
         <div className="space-y-4">
           {/* 월간 / 연간 토글 */}
           <div className="flex gap-1">
-            {([['month', `${format(currentDate, 'M월')} 월간`], ['year', `${currentDate.getFullYear()}년 연간`]] as const).map(([k, l]) => (
+            {([['month', '월간 통계'], ['year', '연간 통계']] as const).map(([k, l]) => (
               <button key={k} onClick={() => setStatPeriod(k)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statPeriod === k ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
                 {l}
               </button>
             ))}
           </div>
-          {/* 경영 지표 */}
-          <div className="card p-4">
-            <h3 className="font-semibold text-slate-800 mb-1 text-sm">📈 경영 지표 (병원 경비)</h3>
-            <p className="text-[11px] text-slate-400 mb-3">{statPeriod === 'year' ? '연간(해당 연도 월별 매출 합계) 기준' : "위쪽 '이번 달 총 매출' 입력 시 매출 대비 비율과 순이익을 계산합니다"}</p>
-            {revenueNum > 0 ? (
-              <>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div className="bg-slate-50 rounded-lg p-3">
-                    <p className="text-xs text-slate-400 mb-0.5">순이익 (매출 − 병원경비)</p>
-                    <p className={`text-base font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{fmt(netProfit)}</p>
-                  </div>
-                  <div className="bg-slate-50 rounded-lg p-3">
-                    <p className="text-xs text-slate-400 mb-0.5">순이익률</p>
-                    <p className={`text-base font-bold ${netMargin >= 25 ? 'text-green-600' : netMargin >= 0 ? 'text-amber-600' : 'text-red-500'}`}>{netMargin}%</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {mgmtRatios.map(r => {
-                    const pct = pctOf(r.val, revenueNum)
-                    const st = pct <= r.healthy ? ['양호', 'text-green-600 bg-green-50'] : pct <= r.healthy + 5 ? ['주의', 'text-amber-600 bg-amber-50'] : ['높음', 'text-red-500 bg-red-50']
-                    return (
-                      <div key={r.label} className="flex items-center gap-2">
-                        <span className="text-xs text-slate-600 w-24 flex-shrink-0">{r.label}</span>
-                        <div className="flex-1 bg-slate-100 rounded-full h-2"><div className="h-2 rounded-full bg-blue-400" style={{ width: `${Math.min(100, pct)}%` }} /></div>
-                        <span className="text-xs font-medium text-slate-700 w-12 text-right">{pct}%</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full w-10 text-center ${st[1]}`}>{st[0]}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-                <p className="text-[10px] text-slate-400 mt-2">* 매출 대비 · 치과 일반 권장: 인건비 25~30%, 기공료·재료비 8~12%, 임대료 5~7%</p>
-              </>
+          {/* 기간별 개요 (모든 월/연도 한눈에) */}
+          <div className="card p-4 overflow-x-auto">
+            <h3 className="font-semibold text-slate-800 mb-3 text-sm">{statPeriod === 'year' ? '연도별' : '월별'} 개요 <span className="text-[11px] text-slate-400 font-normal">(단위: 만원)</span></h3>
+            {overview.length === 0 ? (
+              <p className="text-sm text-slate-400 py-4 text-center">데이터가 없어요</p>
             ) : (
-              <p className="text-xs text-slate-400 text-center py-2">매출 미입력 — 분류별 비율은 각 항목(병원경비/가계) 합계 대비로 표시됩니다</p>
+              <table className="w-full text-xs whitespace-nowrap">
+                <thead>
+                  <tr className="text-slate-400 border-b border-slate-100">
+                    <th className="text-left py-1.5 font-medium">기간</th>
+                    <th className="text-right font-medium text-green-500 px-2">수입</th>
+                    <th className="text-right font-medium text-red-400 px-2">지출</th>
+                    <th className="text-right font-medium text-rose-400 px-2">병원</th>
+                    <th className="text-right font-medium text-teal-500 px-2">가계</th>
+                    <th className="text-right font-medium text-amber-500 px-2">개인</th>
+                    <th className="text-right font-medium text-indigo-500 px-2">저축</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {overview.map(o => (
+                    <tr key={o.key} className="border-b border-slate-50">
+                      <td className="py-1.5 text-slate-700 font-medium">{periodLabel(o.key)}</td>
+                      <td className="text-right text-green-600 px-2">{won(o.income)}</td>
+                      <td className="text-right text-red-500 px-2">{won(o.expense)}</td>
+                      <td className="text-right text-slate-600 px-2">{won(o.hospital)}</td>
+                      <td className="text-right text-slate-600 px-2">{won(o.household)}</td>
+                      <td className="text-right text-slate-600 px-2">{won(o.personal)}</td>
+                      <td className="text-right text-slate-600 px-2">{won(o.saving)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
 
-          {/* scope별 분류 분석 (개인 제외) */}
-          {(['hospital', 'household'] as BudgetScope[]).map(s => {
-            const bd = scopeBreakdown(s)
-            if (bd.cats.length === 0) return null
-            return (
-              <div key={s} className="card p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-slate-800 text-sm">{SCOPE_LABEL[s]} 분류별</h3>
-                  <span className="text-sm font-bold text-slate-700">{fmt(bd.total)}</span>
-                </div>
-                <ResponsiveContainer width="100%" height={Math.max(120, bd.cats.length * 26)}>
-                  <BarChart data={bd.cats} layout="vertical" margin={{ top: 0, right: 10, left: 30, bottom: 0 }}>
-                    <XAxis type="number" hide />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={70} />
-                    <Tooltip formatter={(v) => [`${Number(v).toLocaleString()}원`, '']} />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                      {bd.cats.map((c, idx) => <Cell key={idx} fill={c.color} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-                <div className="mt-1 space-y-1">
-                  {bd.cats.map(c => (
-                    <div key={c.name} className="flex items-center gap-2 text-xs">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
-                      <span className="text-slate-600 flex-1 truncate">{c.name}</span>
-                      <span className="text-slate-700 font-medium">{fmt(c.value)}</span>
-                      <span className="text-slate-400 w-10 text-right">{c.pct}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-
-          {/* 저축 */}
-          {savingBreakdown.length > 0 && (
-            <div className="card p-4">
+          {/* 분류 분석 (최신 기간 vs 직전 기간, 증감률) */}
+          {curKey && [
+            { title: '🏥 병원 경비 분류별', rows: anaHospital, rev: true, invert: false },
+            { title: '🏠 가계 분류별', rows: anaHousehold, rev: false, invert: false },
+            { title: '💰 저축 분류별', rows: anaSaving, rev: false, invert: true },
+          ].map(sec => sec.rows.length > 0 && (
+            <div key={sec.title} className="card p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-800 text-sm">저축</h3>
-                <span className="text-sm font-bold text-indigo-600">{fmt(statTotalSaving)}</span>
+                <h3 className="font-semibold text-slate-800 text-sm">{sec.title}</h3>
+                <span className="text-[11px] text-slate-400">{periodLabel(curKey)}{prevKey ? ` vs ${periodLabel(prevKey)}` : ''}</span>
               </div>
-              <div className="space-y-1">
-                {savingBreakdown.map(c => (
-                  <div key={c.name} className="flex items-center gap-2 text-xs">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
-                    <span className="text-slate-600 flex-1 truncate">{c.name}</span>
-                    <span className="text-slate-700 font-medium">{fmt(c.value)}</span>
-                  </div>
-                ))}
+              <div className="space-y-1.5">
+                {sec.rows.map(r => {
+                  const up = r.delta != null && r.delta > 0
+                  const good = sec.invert ? up : !up // 지출↓=좋음, 저축↑=좋음
+                  return (
+                    <div key={r.name} className="flex items-center gap-2 text-xs">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
+                      <span className="text-slate-600 flex-1 truncate">{r.name}</span>
+                      {sec.rev && r.revPct != null && <span className="text-slate-400 w-16 text-right">매출 {r.revPct}%</span>}
+                      <span className="text-slate-700 font-medium w-20 text-right">{fmt(r.cur)}</span>
+                      <span className={`w-16 text-right ${r.delta == null ? 'text-slate-300' : good ? 'text-green-500' : 'text-red-500'}`}>
+                        {r.delta == null ? '신규' : `${up ? '▲' : r.delta < 0 ? '▼' : '–'}${Math.abs(r.delta)}%`}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
-          )}
+          ))}
+          <p className="text-[10px] text-slate-400 px-1">▲/▼는 직전 {statPeriod === 'year' ? '연도' : '달'} 대비 증감률. 병원 경비는 매출 대비 비율도 함께 표시(매출 입력 시). 치과 권장: 인건비 25~30%, 기공료·재료비 8~12%, 임대+관리 7~9%.</p>
         </div>
       )}
 

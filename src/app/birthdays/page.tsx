@@ -228,7 +228,10 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
       {viewTab === 'calendar' && (
         <div className="card overflow-hidden mb-4">
           <div className="flex items-center justify-between p-3 border-b border-slate-100">
-            <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft size={24} /></button>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCalMonth(new Date())} className="text-sm font-medium text-rose-500 hover:bg-rose-50 rounded-lg px-2.5 py-1 transition-colors">오늘</button>
+              <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft size={24} /></button>
+            </div>
             <span className="font-semibold text-slate-800 text-xl">{calMonth.getFullYear()}년 {calMonth.getMonth() + 1}월</span>
             <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronRight size={24} /></button>
           </div>
@@ -242,30 +245,27 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
               const m = calMonth.getMonth() + 1
               const year = calMonth.getFullYear()
               const firstDay = new Date(year, m - 1, 1)
-              const lastDay = new Date(year, m, 0)
               const pad = (firstDay.getDay() + 6) % 7
-              const daysInMonth = lastDay.getDate()
-              const cells = []
-              for (let i = 0; i < pad; i++) cells.push(<div key={`p${i}`} className="min-h-[100px] border-b border-r border-slate-50" />)
-              for (let d = 1; d <= daysInMonth; d++) {
-                const mm = String(m).padStart(2, '0')
-                const dd = String(d).padStart(2, '0')
-                const key = `${mm}-${dd}`
-                const bds = birthdays.filter(b => b.birthday === key)
-                const dow = new Date(year, m - 1, d).getDay()
-                const isLast = d + pad > daysInMonth - 7 + pad
-                cells.push(
-                  <div key={d} className={`min-h-[100px] p-1 border-b border-r border-slate-50 ${isLast ? 'border-b-0' : ''}`}>
-                    <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{d}</div>
+              const gridStart = new Date(year, m - 1, 1 - pad)
+              return Array.from({ length: 42 }, (_, i) => {
+                const cur = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i)
+                const inMonth = cur.getMonth() === m - 1
+                const mm = String(cur.getMonth() + 1).padStart(2, '0')
+                const dd = String(cur.getDate()).padStart(2, '0')
+                const bds = birthdays.filter(b => b.birthday === `${mm}-${dd}`)
+                const dow = cur.getDay()
+                const isLast = i >= 35
+                return (
+                  <div key={i} className={`min-h-[100px] p-1 border-b border-r border-slate-50 ${isLast ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
+                    <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${!inMonth ? 'text-slate-300' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{cur.getDate()}</div>
                     {bds.map(b => (
                       <button key={b.id} onClick={() => setSelected(b)} className="w-full text-left">
-                        <div className="text-[13px] bg-rose-100 text-rose-600 px-1 py-0.5 rounded truncate mb-0.5">🎂 {b.name}</div>
+                        <div className={`text-[13px] px-1 py-0.5 rounded truncate mb-0.5 ${inMonth ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'}`}>🎂 {b.name}</div>
                       </button>
                     ))}
                   </div>
                 )
-              }
-              return cells
+              })
             })()}
           </div>
         </div>

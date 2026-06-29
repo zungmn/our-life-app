@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, Event } from '@/lib/supabase'
 import { PERSON_COLORS } from '@/lib/constants'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO, differenceInCalendarDays, addDays } from 'date-fns'
+import { format, startOfMonth, endOfMonth, getDay, isToday, addMonths, subMonths, parseISO, differenceInCalendarDays, addDays, subDays, isSameMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, Paperclip } from 'lucide-react'
 import DatePickerInput from '@/components/DatePickerInput'
@@ -46,8 +46,9 @@ export default function CalendarPage() {
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
-  const startPad = (getDay(monthStart) + 6) % 7
+  // 월요일 시작 6주(42칸) 그리드 — 앞뒤 빈칸은 전/다음 달 날짜로 채움
+  const gridStart = subDays(monthStart, (getDay(monthStart) + 6) % 7)
+  const gridDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
 
   const fetchEvents = useCallback(async () => {
     const { data } = await supabase
@@ -164,17 +165,20 @@ export default function CalendarPage() {
       <>
       {/* Month header */}
       <div className="flex items-center justify-between mb-5">
-        <button onClick={() => setCurrentDate(subMonths(currentDate, 1))}
-          className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-          <ChevronLeft size={24} className="text-slate-600" />
-        </button>
-        <h2 className="text-xl font-bold text-slate-800">
-          {format(currentDate, 'yyyy년 M월')}
-        </h2>
-        <button onClick={() => setCurrentDate(addMonths(currentDate, 1))}
-          className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-          <ChevronRight size={24} className="text-slate-600" />
-        </button>
+        <button onClick={() => setCurrentDate(new Date())}
+          className="text-sm font-medium text-blue-500 hover:bg-blue-50 rounded-lg px-3 py-1.5 transition-colors">오늘</button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+            <ChevronLeft size={24} className="text-slate-600" />
+          </button>
+          <h2 className="text-xl font-bold text-slate-800">{format(currentDate, 'yyyy년 M월')}</h2>
+          <button onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+            <ChevronRight size={24} className="text-slate-600" />
+          </button>
+        </div>
+        <span className="w-12" />
       </div>
 
       {/* Calendar grid */}
@@ -188,16 +192,14 @@ export default function CalendarPage() {
         </div>
 
         <div className="grid grid-cols-7">
-          {Array(startPad).fill(null).map((_, i) => (
-            <div key={`pad-${i}`} className="border-b border-r border-slate-50 min-h-[100px]" />
-          ))}
-          {days.map((day, i) => {
+          {gridDays.map((day, i) => {
             const dateStr = format(day, 'yyyy-MM-dd')
+            const inMonth = isSameMonth(day, currentDate)
             const de = dayEvents(day)
             const isSelected = selectedDate === dateStr
             const today = isToday(day)
             const dayOfWeek = getDay(day)
-            const isLastRow = i >= days.length - 7
+            const isLastRow = i >= 35
 
             return (
               <div
@@ -207,10 +209,11 @@ export default function CalendarPage() {
                 onDrop={() => handleEventDrop(dateStr)}
                 className={`border-b border-r border-slate-50 min-h-[100px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${
                   isSelected ? 'bg-blue-50' : ''
-                } ${isLastRow ? 'border-b-0' : ''} ${dragId ? 'hover:bg-blue-100' : ''}`}
+                } ${isLastRow ? 'border-b-0' : ''} ${dragId ? 'hover:bg-blue-100' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}
               >
                 <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${
                   today ? 'bg-blue-500 text-white' :
+                  !inMonth ? 'text-slate-300' :
                   dayOfWeek === 0 ? 'text-red-400' :
                   dayOfWeek === 6 ? 'text-blue-400' :
                   'text-slate-700'
