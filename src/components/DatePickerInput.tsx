@@ -4,7 +4,7 @@ import DateInput from './DateInput'
 import { format, startOfMonth, endOfMonth, getDay, addMonths, subMonths, subDays, addDays, isSameMonth } from 'date-fns'
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 
-const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 
 interface Props {
   value: string
@@ -19,7 +19,7 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
 
   // 필요한 만큼(5주/6주)만: 이번 달 + 앞뒤 빈칸을 전/다음 달 날짜로 채움
   const monthStart = startOfMonth(calMonth)
-  const leadPad = getDay(monthStart)
+  const leadPad = (getDay(monthStart) + 6) % 7 // 월요일 시작
   const weeks = Math.ceil((leadPad + endOfMonth(calMonth).getDate()) / 7)
   const gridStart = subDays(monthStart, leadPad)
   const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i))
@@ -68,7 +68,7 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
             </div>
             <div className="grid grid-cols-7 mb-1.5">
               {WEEKDAYS.map((d, i) => (
-                <div key={d} className={`text-center text-xs font-medium py-1 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{d}</div>
+                <div key={d} className={`text-center text-xs font-medium py-1 ${i === 6 ? 'text-red-400' : i === 5 ? 'text-blue-400' : 'text-slate-400'}`}>{d}</div>
               ))}
             </div>
             <div className="grid grid-cols-7 gap-y-1">
