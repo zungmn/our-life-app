@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase, Birthday, BirthdayGift } from '@/lib/supabase'
 import { Plus, X, Trash2, Gift, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import DateInput from '@/components/DateInput'
+import { holidaysForYears } from '@/lib/holidays'
 
 // 음력→양력 변환 (korean-lunar-calendar)
 function lunarToSolarDate(year: number, lunarMM: string, lunarDD: string): string | null {
@@ -249,17 +250,23 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
               const daysInMonth = new Date(year, m, 0).getDate()
               const weeks = Math.ceil((pad + daysInMonth) / 7)
               const gridStart = new Date(year, m - 1, 1 - pad)
+              const hol = holidaysForYears([year - 1, year, year + 1])
               return Array.from({ length: weeks * 7 }, (_, i) => {
                 const cur = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i)
                 const inMonth = cur.getMonth() === m - 1
                 const mm = String(cur.getMonth() + 1).padStart(2, '0')
                 const dd = String(cur.getDate()).padStart(2, '0')
+                const ds = `${cur.getFullYear()}-${mm}-${dd}`
+                const holiday = hol[ds]
                 const bds = birthdays.filter(b => b.birthday === `${mm}-${dd}`)
                 const dow = cur.getDay()
                 const isLast = i >= (weeks - 1) * 7
                 return (
                   <div key={i} className={`min-h-[100px] p-1 border-b border-r border-slate-50 ${isLast ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
-                    <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${!inMonth ? 'text-slate-300' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{cur.getDate()}</div>
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full ${!inMonth ? (holiday ? 'text-red-300' : 'text-slate-300') : (holiday || dow === 0) ? 'text-red-500' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{cur.getDate()}</div>
+                      {holiday && inMonth && <span className="text-[10px] text-red-400 truncate">{holiday}</span>}
+                    </div>
                     {bds.map(b => (
                       <button key={b.id} onClick={() => setSelected(b)} className="w-full text-left">
                         <div className={`text-[13px] px-1 py-0.5 rounded truncate mb-0.5 ${inMonth ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'}`}>🎂 {b.name}</div>

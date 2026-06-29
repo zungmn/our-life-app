@@ -8,6 +8,7 @@ import { ko } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, Paperclip } from 'lucide-react'
 import DatePickerInput from '@/components/DatePickerInput'
 import BirthdaysPage from '@/app/birthdays/page'
+import { holidaysForYears } from '@/lib/holidays'
 
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 const PERSON_ORDER: Record<string, number> = { both: 0, eddy: 1, judy: 2 }
@@ -50,6 +51,8 @@ export default function CalendarPage() {
   const weeks = Math.ceil((leadPad + endOfMonth(currentDate).getDate()) / 7)
   const gridStart = subDays(monthStart, leadPad)
   const gridDays = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i))
+  const cy = currentDate.getFullYear()
+  const holidays = holidaysForYears([cy - 1, cy, cy + 1])
 
   const fetchEvents = useCallback(async () => {
     const gs = subDays(startOfMonth(currentDate), (getDay(startOfMonth(currentDate)) + 6) % 7)
@@ -203,6 +206,7 @@ export default function CalendarPage() {
             const today = isToday(day)
             const dayOfWeek = getDay(day)
             const isLastRow = i >= (weeks - 1) * 7
+            const holiday = holidays[dateStr]
 
             return (
               <div
@@ -214,14 +218,17 @@ export default function CalendarPage() {
                   isSelected ? 'bg-blue-50' : ''
                 } ${isLastRow ? 'border-b-0' : ''} ${dragId ? 'hover:bg-blue-100' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}
               >
-                <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${
-                  today ? 'bg-blue-500 text-white' :
-                  !inMonth ? 'text-slate-300' :
-                  dayOfWeek === 0 ? 'text-red-400' :
-                  dayOfWeek === 6 ? 'text-blue-400' :
-                  'text-slate-700'
-                }`}>
-                  {format(day, 'd')}
+                <div className="flex items-center gap-1 mb-0.5">
+                  <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full ${
+                    today ? 'bg-blue-500 text-white' :
+                    !inMonth ? (holiday ? 'text-red-300' : 'text-slate-300') :
+                    (holiday || dayOfWeek === 0) ? 'text-red-500' :
+                    dayOfWeek === 6 ? 'text-blue-400' :
+                    'text-slate-700'
+                  }`}>
+                    {format(day, 'd')}
+                  </div>
+                  {holiday && inMonth && <span className="text-[10px] text-red-400 truncate">{holiday}</span>}
                 </div>
                 <div className="space-y-0.5">
                   {de.slice(0, 5).map(event => {
@@ -234,6 +241,8 @@ export default function CalendarPage() {
                         draggable={!isBirthday}
                         onDragStart={e => { if (isBirthday) { e.preventDefault(); return } setDragId(event.id) }}
                         onDragEnd={() => setDragId(null)}
+                        onClick={e => e.stopPropagation()}
+                        onDoubleClick={e => { e.stopPropagation(); openEdit(event) }}
                         className={`flex items-center text-[13px] px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'} ${!isBirthday ? 'cursor-grab active:cursor-grabbing' : ''}`}>
                         {isStart ? (
                           <>

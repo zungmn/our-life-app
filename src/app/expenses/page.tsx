@@ -8,6 +8,7 @@ import { ko } from 'date-fns/locale'
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { Plus, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import DateInput from '@/components/DateInput'
+import { holidaysForYears } from '@/lib/holidays'
 
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 const toNum = (s: string) => parseInt((s || '').replace(/[^0-9]/g, '') || '0', 10)
@@ -344,9 +345,11 @@ export default function ExpensesPage() {
   const anaHousehold = buildAnalysis(i => i.type === 'expense' && !i.is_saving && i.scope === 'household')
   const anaSaving = buildAnalysis(i => i.type === 'expense' && i.is_saving)
 
-  // 캘린더 그리드 (월요일 시작, 필요한 만큼만 5주/6주)
+  // 캘린더 그리드 (필요한 만큼만 5주/6주)
   const weeks = Math.ceil((startPad + endOfMonth(currentDate).getDate()) / 7)
   const gridDays = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i))
+  const cyBudget = currentDate.getFullYear()
+  const holidays = holidaysForYears([cyBudget - 1, cyBudget, cyBudget + 1])
 
   // 분류 옵션 (구분 기준 필터 + 가나다 정렬), 입력값으로 추가 검색
   const scopeCats = BUDGET_CATEGORIES.filter(c => c.scope === form.scope).map(c => c.value).sort((a, b) => a.localeCompare(b, 'ko'))
@@ -470,10 +473,14 @@ export default function ExpensesPage() {
               const isLastRow = i >= (weeks - 1) * 7
               const shown = items.slice(0, 6)
               const hiddenCount = items.length - shown.length
+              const holiday = holidays[ds]
               return (
                 <div key={ds} onClick={() => openAdd(ds)}
                   className={`border-b border-r border-slate-50 min-h-[110px] p-1 cursor-pointer hover:bg-slate-50/70 transition-colors ${isLastRow ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
-                  <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday(day) ? 'bg-blue-500 text-white' : !inMonth ? 'text-slate-300' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
+                  <div className="flex items-center gap-1 mb-1">
+                    <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-blue-500 text-white' : !inMonth ? (holiday ? 'text-red-300' : 'text-slate-300') : (holiday || dow === 0) ? 'text-red-500' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
+                    {holiday && inMonth && <span className="text-[10px] text-red-400 truncate">{holiday}</span>}
+                  </div>
                   <div className="space-y-0.5">
                     {shown.map(it => (
                       <div key={it.id}

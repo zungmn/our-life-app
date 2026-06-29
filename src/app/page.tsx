@@ -8,6 +8,7 @@ import { ko } from 'date-fns/locale'
 import { Plus, X, Trash2, Check, ChevronLeft, ChevronRight, Paperclip } from 'lucide-react'
 import Link from 'next/link'
 import DatePickerInput from '@/components/DatePickerInput'
+import { holidaysForYears } from '@/lib/holidays'
 
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 const TODAY = format(new Date(), 'yyyy-MM-dd')
@@ -243,6 +244,8 @@ export default function Home() {
   const weeks = Math.ceil((leadPad + endOfMonth(calDate).getDate()) / 7)
   const gridStart = subDays(monthStart, leadPad)
   const gridDays = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i))
+  const cy = calDate.getFullYear()
+  const holidays = holidaysForYears([cy - 1, cy, cy + 1])
   const dayEvents = (date: Date) => {
     const ds = format(date, 'yyyy-MM-dd')
     return sortEvents(events.filter(e => {
@@ -267,6 +270,8 @@ export default function Home() {
         draggable={!isBirthday}
         onDragStart={e => { if (isBirthday) { e.preventDefault(); return } setDragId(event.id) }}
         onDragEnd={() => setDragId(null)}
+        onClick={e => e.stopPropagation()}
+        onDoubleClick={e => { e.stopPropagation(); if (!isBirthday) openEditEvent(event) }}
         className={`flex items-center text-[13px] px-0.5 py-0.5 ${pc.bg} ${pc.text} ${isStart ? 'rounded-l' : '-ml-1'} ${isEnd ? 'rounded-r' : '-mr-1'} ${!isBirthday ? 'cursor-grab active:cursor-grabbing' : ''}`}>
         {isStart ? (
           <>
@@ -401,13 +406,17 @@ export default function Home() {
             const todayMark = isToday(day)
             const dow = getDay(day)
             const isLastRow = i >= (weeks - 1) * 7
+            const holiday = holidays[dateStr]
             return (
-              <div key={dateStr} onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+              <div key={dateStr} onClick={() => openAddEvent(dateStr)}
                 onDragOver={e => { if (dragId) e.preventDefault() }}
                 onDrop={() => handleEventDrop(dateStr)}
-                className={`border-b border-r border-slate-50 min-h-[80px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${isLastRow ? 'border-b-0' : ''} ${dragId ? 'hover:bg-blue-100' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
-                <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full mb-0.5 ${todayMark ? 'bg-blue-500 text-white' : !inMonth ? 'text-slate-300' : dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>
-                  {format(day, 'd')}
+                className={`border-b border-r border-slate-50 min-h-[80px] p-1 cursor-pointer hover:bg-slate-50 transition-colors ${isLastRow ? 'border-b-0' : ''} ${dragId ? 'hover:bg-blue-100' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
+                <div className="flex items-center gap-1 mb-0.5">
+                  <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full ${todayMark ? 'bg-blue-500 text-white' : !inMonth ? (holiday ? 'text-red-300' : 'text-slate-300') : (holiday || dow === 0) ? 'text-red-500' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>
+                    {format(day, 'd')}
+                  </div>
+                  {holiday && inMonth && <span className="text-[10px] text-red-400 truncate">{holiday}</span>}
                 </div>
                 <div className="space-y-0.5">
                   {de.slice(0, 5).map(event => renderCellEvent(event, dateStr))}
@@ -417,50 +426,6 @@ export default function Home() {
             )
           })}
         </div>
-
-        {selectedDate && (
-          <div className="border-t border-slate-100 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-slate-700">{format(new Date(selectedDate), 'M월 d일 (EEEE)', { locale: ko })}</p>
-              <button onClick={() => openAddEvent(selectedDate)}
-                className="flex items-center gap-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded-lg transition-colors">
-                <Plus size={12} /> 이날 일정 추가
-              </button>
-            </div>
-            {selectedEvents.length === 0 ? <p className="text-xs text-slate-400">일정이 없어요</p> : (
-              <div className="space-y-1">
-                {selectedEvents.map(event => {
-                  const pc = PERSON_COLORS[event.person]
-                  return (
-                    <div key={event.id} onDoubleClick={() => openEditEvent(event)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg ${pc.bg} group cursor-pointer`}>
-                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc.dot }} />
-                      <div className="flex-1">
-                        <p className={`text-sm ${pc.text}`}>{event.title}</p>
-                        {event.end_date && <p className="text-xs text-slate-500">~ {event.end_date}</p>}
-                        {event.file_url && (
-                          <a href={event.file_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                            className="text-xs text-blue-500 hover:underline inline-flex items-center gap-1">
-                            <Paperclip size={10} /> 첨부파일
-                          </a>
-                        )}
-                      </div>
-                      {event.time && <p className="text-xs text-slate-400">{formatKoreanTime(event.time)}</p>}
-                      <label className="opacity-0 group-hover:opacity-100 cursor-pointer text-slate-400 hover:text-blue-400 transition-all" onClick={e => e.stopPropagation()}>
-                        <input type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleEventFileUpload(f, event.id) }} />
-                        <Paperclip size={20} />
-                      </label>
-                      <button onClick={(e) => { e.stopPropagation(); handleEventDelete(event.id) }}
-                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 transition-all">
-                        <Trash2 size={20} />
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="flex gap-4 px-6 py-3 border-t border-slate-50">
           {Object.entries(PERSON_COLORS).map(([key, pc]) => (

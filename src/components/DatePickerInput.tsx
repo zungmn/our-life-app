@@ -3,6 +3,7 @@ import { useState } from 'react'
 import DateInput from './DateInput'
 import { format, startOfMonth, endOfMonth, getDay, addMonths, subMonths, subDays, addDays, isSameMonth } from 'date-fns'
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
+import { holidaysForYears } from '@/lib/holidays'
 
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 
@@ -23,6 +24,8 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
   const weeks = Math.ceil((leadPad + endOfMonth(calMonth).getDate()) / 7)
   const gridStart = subDays(monthStart, leadPad)
   const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i))
+  const cy = calMonth.getFullYear()
+  const holidays = holidaysForYears([cy - 1, cy, cy + 1])
 
   const selectDay = (d: Date) => {
     onChange(format(d, 'yyyy-MM-dd'))
@@ -45,9 +48,8 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
         </button>
       </div>
       {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-slate-200 rounded-xl shadow-xl p-4 w-96">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+          <div onClick={e => e.stopPropagation()} className="bg-white border border-slate-200 rounded-xl shadow-xl p-4 w-96 max-w-[calc(100vw-2rem)]">
             <div className="flex items-center justify-between mb-3">
               <button type="button" onClick={goToday}
                 className="text-xs font-medium text-blue-500 hover:bg-blue-50 rounded-lg px-2.5 py-1 transition-colors">
@@ -77,12 +79,13 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
                 const isSelected = ds === value
                 const inMonth = isSameMonth(day, calMonth)
                 const dow = getDay(day)
+                const holiday = holidays[ds]
                 return (
-                  <button key={ds} type="button" onClick={() => selectDay(day)}
+                  <button key={ds} type="button" onClick={() => selectDay(day)} title={holiday || undefined}
                     className={`text-sm w-full aspect-square rounded-lg flex items-center justify-center transition-colors ${
                       isSelected ? 'bg-blue-500 text-white font-bold' :
-                      !inMonth ? 'text-slate-300 hover:bg-slate-50' :
-                      dow === 0 ? 'text-red-400 hover:bg-red-50' :
+                      !inMonth ? (holiday ? 'text-red-300 hover:bg-red-50' : 'text-slate-300 hover:bg-slate-50') :
+                      (holiday || dow === 0) ? 'text-red-500 hover:bg-red-50' :
                       dow === 6 ? 'text-blue-400 hover:bg-blue-50' :
                       'text-slate-700 hover:bg-slate-100'
                     }`}>
@@ -92,7 +95,7 @@ export default function DatePickerInput({ value, onChange, className = '' }: Pro
               })}
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   )
