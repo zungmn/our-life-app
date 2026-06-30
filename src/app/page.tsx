@@ -56,7 +56,7 @@ export default function Home() {
 
   const [todoForm, setTodoForm] = useState({ title: '', deadline: TODAY, shared: false })
   const [projectForm, setProjectForm] = useState({ title: '', deadline: '', shared: false, memo: '' })
-  const [eventForm, setEventForm] = useState({ title: '', date: TODAY, end_date: '', time: '', person: 'both' as 'eddy' | 'judy' | 'both', note: '' })
+  const [eventForm, setEventForm] = useState({ title: '', date: TODAY, end_date: '', time: '', person: 'both' as 'eddy' | 'judy' | 'both', note: '', photos: [] as string[] })
 
   useEffect(() => {
     setViewer((localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy')
@@ -187,17 +187,17 @@ export default function Home() {
   // --- Event handlers ---
   const openAddEvent = (date?: string) => {
     setEditEvent(null)
-    setEventForm({ title: '', date: date || selectedDate || TODAY, end_date: '', time: '', person: 'both', note: '' })
+    setEventForm({ title: '', date: date || selectedDate || TODAY, end_date: '', time: '', person: 'both', note: '', photos: [] })
     setShowEventModal(true)
   }
   const openEditEvent = (event: CalendarEvent) => {
     setEditEvent(event)
-    setEventForm({ title: event.title, date: event.date, end_date: event.end_date || '', time: event.time || '', person: event.person, note: event.note || '' })
+    setEventForm({ title: event.title, date: event.date, end_date: event.end_date || '', time: event.time || '', person: event.person, note: event.note || '', photos: event.photos || [] })
     setShowEventModal(true)
   }
   const handleEventSave = async () => {
     if (!eventForm.title.trim()) return
-    const payload = { title: eventForm.title, date: eventForm.date, end_date: eventForm.end_date || null, time: eventForm.time || null, person: eventForm.person, note: eventForm.note || null }
+    const payload = { title: eventForm.title, date: eventForm.date, end_date: eventForm.end_date || null, time: eventForm.time || null, person: eventForm.person, note: eventForm.note || null, photos: eventForm.photos }
     if (editEvent) {
       const { error } = await supabase.from('events').update(payload).eq('id', editEvent.id)
       if (error) { alert('수정 실패: ' + error.message); return }
@@ -205,7 +205,7 @@ export default function Home() {
       const { error } = await supabase.from('events').insert(payload)
       if (error) { alert('저장 실패: ' + error.message); return }
     }
-    setEventForm({ title: '', date: selectedDate || TODAY, end_date: '', time: '', person: 'both', note: '' })
+    setEventForm({ title: '', date: selectedDate || TODAY, end_date: '', time: '', person: 'both', note: '', photos: [] })
     setEditEvent(null)
     setShowEventModal(false)
     await fetchAll()
@@ -213,6 +213,20 @@ export default function Home() {
   const handleEventDelete = async (id: string) => {
     await supabase.from('events').delete().eq('id', id)
     await fetchAll()
+  }
+  // 사진 여러 장 업로드 → eventForm.photos 에 URL 추가
+  const handleEventPhotos = async (files: FileList) => {
+    setUploadingEventFile(true)
+    const urls: string[] = []
+    for (const file of Array.from(files)) {
+      const ext = file.name.split('.').pop()
+      const path = `events/photo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+      const { error } = await supabase.storage.from('archive').upload(path, file, { upsert: true })
+      if (error) { alert('업로드 실패: ' + error.message); continue }
+      urls.push(supabase.storage.from('archive').getPublicUrl(path).data.publicUrl)
+    }
+    setEventForm(f => ({ ...f, photos: [...f.photos, ...urls] }))
+    setUploadingEventFile(false)
   }
   const handleEventFileUpload = async (file: File, eventId: string) => {
     setUploadingEventFile(true)
@@ -555,10 +569,28 @@ export default function Home() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">메모 (선택)</label>
-                <textarea className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-slate-400 resize-none"
-                  rows={2} placeholder="메모..."
+                <label className="text-xs text-slate-500 mb-1 block">메모 / 기록</label>
+                <textarea className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-slate-400 resize-y"
+                  rows={5} placeholder="자유롭게 기록하세요..."
                   value={eventForm.note} onChange={e => setEventForm(f => ({ ...f, note: e.target.value }))} />
+              </div>
+              {/* 사진 첨부 (여러 장) */}
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">사진</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {eventForm.photos.map((url, i) => (
+                    <div key={i} className="relative w-16 h-16">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-slate-200" />
+                      <button onClick={() => setEventForm(f => ({ ...f, photos: f.photos.filter((_, j) => j !== i) }))}
+                        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">×</button>
+                    </div>
+                  ))}
+                  <label className="w-16 h-16 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-slate-300 text-slate-400 text-xs">
+                    {uploadingEventFile ? '...' : '+ 사진'}
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={e => { if (e.target.files?.length) handleEventPhotos(e.target.files) }} />
+                  </label>
+                </div>
               </div>
               {editEvent && (
                 <div>

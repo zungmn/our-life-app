@@ -14,6 +14,7 @@ export type Event = {
   person: 'eddy' | 'judy' | 'both'
   note?: string
   file_url?: string
+  photos?: string[]
   created_at: string
 }
 

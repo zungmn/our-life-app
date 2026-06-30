@@ -34,6 +34,7 @@ function buildYear(year: number): Record<string, string> {
   push(ymd(year, 3, 1), '삼일절')
   push(ymd(year, 5, 5), '어린이날')
   push(ymd(year, 6, 6), '현충일')
+  if (year >= 2026) push(ymd(year, 7, 17), '제헌절') // 2026년 공휴일 재지정
   push(ymd(year, 8, 15), '광복절')
   push(ymd(year, 10, 3), '개천절')
   push(ymd(year, 10, 9), '한글날')

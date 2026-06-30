@@ -40,7 +40,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState<Event | null>(null)
-  const [form, setForm] = useState({ title: '', end_date: '', time: '', person: 'eddy' as 'eddy' | 'judy' | 'both', note: '' })
+  const [form, setForm] = useState({ title: '', end_date: '', time: '', person: 'eddy' as 'eddy' | 'judy' | 'both', note: '', photos: [] as string[] })
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [dragId, setDragId] = useState<string | null>(null)
@@ -79,13 +79,14 @@ export default function CalendarPage() {
 
   const openAdd = () => {
     setEditItem(null)
-    setForm({ title: '', end_date: '', time: '', person: 'eddy', note: '' })
+    setForm({ title: '', end_date: '', time: '', person: 'eddy', note: '', photos: [] })
     setShowModal(true)
   }
 
   const openEdit = (event: Event) => {
     setEditItem(event)
-    setForm({ title: event.title, end_date: event.end_date || '', time: event.time || '', person: event.person, note: event.note || '' })
+    setSelectedDate(event.date)
+    setForm({ title: event.title, end_date: event.end_date || '', time: event.time || '', person: event.person, note: event.note || '', photos: event.photos || [] })
     setShowModal(true)
   }
 
@@ -98,6 +99,7 @@ export default function CalendarPage() {
       person: form.person,
       note: form.note || null,
       end_date: form.end_date || null,
+      photos: form.photos,
     }
     if (editItem) {
       await supabase.from('events').update(payload).eq('id', editItem.id)
@@ -115,6 +117,21 @@ export default function CalendarPage() {
     await fetchEvents()
     setShowModal(false)
     setEditItem(null)
+  }
+
+  // 사진 여러 장 업로드
+  const handlePhotos = async (files: FileList) => {
+    setUploading(true)
+    const urls: string[] = []
+    for (const file of Array.from(files)) {
+      const ext = file.name.split('.').pop()
+      const path = `events/photo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+      const { error } = await supabase.storage.from('archive').upload(path, file, { upsert: true })
+      if (error) { alert('업로드 실패: ' + error.message); continue }
+      urls.push(supabase.storage.from('archive').getPublicUrl(path).data.publicUrl)
+    }
+    setForm(f => ({ ...f, photos: [...f.photos, ...urls] }))
+    setUploading(false)
   }
 
   const handleFileUpload = async (file: File, eventId: string) => {
@@ -387,14 +404,32 @@ export default function CalendarPage() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">메모 (선택)</label>
+                <label className="text-xs text-slate-500 mb-1 block">메모 / 기록</label>
                 <textarea
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 resize-none"
-                  rows={2}
-                  placeholder="메모..."
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 resize-y"
+                  rows={5}
+                  placeholder="자유롭게 기록하세요..."
                   value={form.note}
                   onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
                 />
+              </div>
+              {/* 사진 (여러 장) */}
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">사진</label>
+                <div className="flex flex-wrap gap-2">
+                  {form.photos.map((url, i) => (
+                    <div key={i} className="relative w-16 h-16">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-slate-200" />
+                      <button onClick={() => setForm(f => ({ ...f, photos: f.photos.filter((_, j) => j !== i) }))}
+                        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">×</button>
+                    </div>
+                  ))}
+                  <label className="w-16 h-16 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-slate-300 text-slate-400 text-xs">
+                    {uploading ? '...' : '+ 사진'}
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={e => { if (e.target.files?.length) handlePhotos(e.target.files) }} />
+                  </label>
+                </div>
               </div>
               {/* File upload - only for existing events */}
               {editItem && (

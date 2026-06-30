@@ -87,3 +87,6 @@ CREATE INDEX IF NOT EXISTS idx_clinic_finance_scope ON clinic_finance(scope);
 
 ALTER TABLE clinic_finance ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public access" ON clinic_finance FOR ALL USING (true) WITH CHECK (true);
+
+-- 일정에 사진 여러 장 첨부
+ALTER TABLE events ADD COLUMN IF NOT EXISTS photos text[] DEFAULT '{}';
