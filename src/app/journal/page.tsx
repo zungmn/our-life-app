@@ -6,6 +6,7 @@ import { MOODS } from '@/lib/constants'
 import { Plus, X, Trash2, Lock } from 'lucide-react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import DatePickerInput from '@/components/DatePickerInput'
 
 export default function JournalPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([])
@@ -162,8 +163,7 @@ export default function JournalPage() {
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">날짜</label>
-                <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400"
-                  value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+                <DatePickerInput value={form.date} onChange={v => setForm(f => ({ ...f, date: v }))} className="w-full" />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">제목 (선택)</label>

@@ -5,7 +5,7 @@ import { supabase, Event } from '@/lib/supabase'
 import { PERSON_COLORS } from '@/lib/constants'
 import { format, startOfMonth, endOfMonth, getDay, isToday, addMonths, subMonths, parseISO, differenceInCalendarDays, addDays, subDays, isSameMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, X, Trash2, Paperclip } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, Paperclip, Download } from 'lucide-react'
 import DatePickerInput from '@/components/DatePickerInput'
 import BirthdaysPage from '@/app/birthdays/page'
 import { holidaysForYears } from '@/lib/holidays'
@@ -14,7 +14,14 @@ const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 const PERSON_ORDER: Record<string, number> = { both: 0, eddy: 1, judy: 2 }
 
 function sortEvents(evs: Event[]) {
+  const span = (e: Event) => (e.end_date && e.end_date !== e.date ? 1 : 0)
   return [...evs].sort((a, b) => {
+    // 여러 날 이어지는 일정을 항상 위로 (끊김 없이 표시)
+    if (span(a) !== span(b)) return span(b) - span(a)
+    if (span(a) && span(b)) {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1
+      return a.id < b.id ? -1 : 1
+    }
     const aNo = a.time ? 1 : 0
     const bNo = b.time ? 1 : 0
     if (aNo !== bNo) return aNo - bNo
@@ -44,6 +51,16 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [dragId, setDragId] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState<string | null>(null)
+
+  const downloadPhoto = async (url: string) => {
+    try {
+      const r = await fetch(url); const b = await r.blob()
+      const o = URL.createObjectURL(b); const a = document.createElement('a')
+      a.href = o; a.download = url.split('/').pop()?.split('?')[0] || 'photo'
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(o)
+    } catch { window.open(url, '_blank') }
+  }
 
   const monthStart = startOfMonth(currentDate)
   // 월요일 시작, 필요한 만큼만(5주 또는 6주) — 앞뒤 빈칸은 전/다음 달 날짜로 채움
@@ -420,7 +437,7 @@ export default function CalendarPage() {
                   {form.photos.map((url, i) => (
                     <div key={i} className="relative w-16 h-16">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-slate-200" />
+                      <img src={url} alt="" onClick={() => setLightbox(url)} className="w-16 h-16 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-80" />
                       <button onClick={() => setForm(f => ({ ...f, photos: f.photos.filter((_, j) => j !== i) }))}
                         className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">×</button>
                     </div>
@@ -460,6 +477,20 @@ export default function CalendarPage() {
               >
                 {loading ? '저장 중...' : '저장'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 사진 원본 보기 (라이트박스) */}
+      {lightbox && (
+        <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <div className="relative max-w-3xl" onClick={e => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightbox} alt="" className="max-w-full max-h-[85vh] object-contain rounded-lg" />
+            <div className="flex justify-center gap-2 mt-3">
+              <button onClick={() => downloadPhoto(lightbox)} className="flex items-center gap-1.5 bg-white text-slate-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-100 transition-colors"><Download size={16} /> 다운로드</button>
+              <button onClick={() => setLightbox(null)} className="bg-white/20 text-white px-4 py-2 rounded-lg text-sm hover:bg-white/30 transition-colors">닫기</button>
             </div>
           </div>
         </div>
