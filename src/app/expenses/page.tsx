@@ -144,8 +144,20 @@ export default function ExpensesPage() {
 
   // 이번 달 매출 (통계용) localStorage
   const revKey = `clinic_revenue_${format(currentDate, 'yyyy-MM')}`
-  useEffect(() => { setMonthRevenue(localStorage.getItem(`clinic_revenue_${format(currentDate, 'yyyy-MM')}`) || '') }, [currentDate])
+  const revDaysKey = `clinic_revenue_days_${format(currentDate, 'yyyy-MM')}`
+  const [revenueByDay, setRevenueByDay] = useState<Record<string, number>>({})
+  useEffect(() => {
+    const ymK = format(currentDate, 'yyyy-MM')
+    setMonthRevenue(localStorage.getItem(`clinic_revenue_${ymK}`) || '')
+    try { setRevenueByDay(JSON.parse(localStorage.getItem(`clinic_revenue_days_${ymK}`) || '{}')) } catch { setRevenueByDay({}) }
+  }, [currentDate])
   const saveRevenue = (v: string) => { setMonthRevenue(v); if (v) localStorage.setItem(revKey, v); else localStorage.removeItem(revKey) }
+  const saveRevenueDays = (days: { date: string; total: number }[]) => {
+    const map: Record<string, number> = {}
+    for (const d of days) if (d?.date) map[d.date] = Number(d.total || 0)
+    setRevenueByDay(map)
+    localStorage.setItem(revDaysKey, JSON.stringify(map))
+  }
 
   // 통합 항목 (캘린더는 그리드 전체, 합계는 이번 달만)
   const monthItems: CalItem[] = [...transactions.map(txToItem), ...clinicCal.map(cfToItem)]
@@ -438,6 +450,7 @@ export default function ExpensesPage() {
                 const j = await res.json()
                 if (j.error) { alert('불러오기 실패: ' + j.error); return }
                 saveRevenue(String(j.total || 0))
+                if (Array.isArray(j.days)) saveRevenueDays(j.days)
                 alert(`이번 달 매출 ${Number(j.total || 0).toLocaleString()}원을 불러왔습니다.`)
               } catch { alert('연결 실패') }
             }} className="flex-shrink-0 text-xs px-3 py-2 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors">
@@ -493,6 +506,12 @@ export default function ExpensesPage() {
                     {holiday && inMonth && <span className="text-[10px] text-red-400 truncate">{holiday}</span>}
                   </div>
                   <div className="space-y-0.5">
+                    {viewer === 'eddy' && revenueByDay[ds] > 0 && (
+                      <div className="flex items-center gap-1 text-[11px] px-1 py-0.5 rounded bg-green-100 text-green-700 font-medium">
+                        <span className="truncate flex-1">매출</span>
+                        <span className="flex-shrink-0">+{revenueByDay[ds].toLocaleString()}원</span>
+                      </div>
+                    )}
                     {shown.map(it => (
                       <div key={it.id}
                         onClick={e => e.stopPropagation()}

@@ -23,7 +23,8 @@ export async function GET(req: Request) {
     if (!res.ok) return NextResponse.json({ error: `OS 응답 오류 (${res.status})` }, { status: 502 })
     const data = await res.json()
     const total = Number(data.total ?? data.revenue ?? 0)
-    return NextResponse.json({ total, raw: data })
+    const days = Array.isArray(data.days) ? data.days : [] // [{ date:'YYYY-MM-DD', total:number }]
+    return NextResponse.json({ total, days })
   } catch (e) {
     return NextResponse.json({ error: '치과 OS 연결 실패: ' + String(e) }, { status: 502 })
   }
