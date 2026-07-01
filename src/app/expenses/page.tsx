@@ -432,6 +432,17 @@ export default function ExpensesPage() {
               value={monthRevenue ? Number(monthRevenue).toLocaleString() : ''}
               onChange={e => saveRevenue(e.target.value.replace(/[^0-9]/g, ''))} />
             <span className="text-xs text-slate-400">원</span>
+            <button onClick={async () => {
+              try {
+                const res = await fetch(`/api/clinic-revenue?month=${format(currentDate, 'yyyy-MM')}`)
+                const j = await res.json()
+                if (j.error) { alert('불러오기 실패: ' + j.error); return }
+                saveRevenue(String(j.total || 0))
+                alert(`이번 달 매출 ${Number(j.total || 0).toLocaleString()}원을 불러왔습니다.`)
+              } catch { alert('연결 실패') }
+            }} className="flex-shrink-0 text-xs px-3 py-2 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors">
+              OS에서 불러오기
+            </button>
             <label className="flex-shrink-0 text-xs px-3 py-2 rounded-lg cursor-pointer border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
               파일 업로드
               <input type="file" accept=".xlsx,.xls,.csv,.html,.htm" className="hidden"
