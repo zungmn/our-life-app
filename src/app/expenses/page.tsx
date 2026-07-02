@@ -177,7 +177,9 @@ export default function ExpensesPage() {
   // ===== 모달 =====
   const openAdd = (date?: string) => {
     setEditItem(null); setEditClinicItem(null); setClinicMode(viewer === 'eddy')
-    setForm({ date: date || format(new Date(), 'yyyy-MM-dd'), type: 'expense', memo: '', amount: '', scope: 'hospital', is_saving: false, category: '직원' })
+    const defScope: BudgetScope = viewer === 'eddy' ? 'hospital' : 'household'
+    const defCat = BUDGET_CATEGORIES.find(c => c.scope === defScope)?.value || '직원'
+    setForm({ date: date || format(new Date(), 'yyyy-MM-dd'), type: 'expense', memo: '', amount: '', scope: defScope, is_saving: false, category: defCat })
     setShowModal(true)
   }
   const openEdit = (t: Transaction) => {
@@ -368,9 +370,10 @@ export default function ExpensesPage() {
   const isExactCat = scopeCats.includes(form.category)
   const catOptions = (isExactCat || !form.category) ? scopeCats : scopeCats.filter(v => v.includes(form.category))
 
-  // 4분할 합계 카드 데이터
+  // 구분 옵션 / 합계 카드 (Judy는 병원 경비 제외)
+  const scopeOptions: BudgetScope[] = viewer === 'eddy' ? SCOPES : (['household', 'personal'] as BudgetScope[])
   const bucketCards = [
-    { label: '병원 경비', val: scopeTotal('hospital'), cls: 'text-rose-500' },
+    ...(viewer === 'eddy' ? [{ label: '병원 경비', val: scopeTotal('hospital'), cls: 'text-rose-500' }] : []),
     { label: '가계', val: scopeTotal('household'), cls: 'text-teal-600' },
     { label: '개인', val: scopeTotal('personal'), cls: 'text-amber-600' },
     { label: '저축', val: totalSaving, cls: 'text-indigo-600' },
@@ -472,7 +475,7 @@ export default function ExpensesPage() {
         <div className="card p-3"><p className="text-xs text-slate-400 mb-0.5">이번 달 지출</p><p className="text-base font-bold text-red-500">{fmt(totalExpense)}</p></div>
       </div>
       {/* 병원경비 / 가계 / 개인 / 저축 */}
-      <div className="grid grid-cols-4 gap-2 mb-4">
+      <div className={`grid ${bucketCards.length === 4 ? 'grid-cols-4' : 'grid-cols-3'} gap-2 mb-4`}>
         {bucketCards.map(b => (
           <div key={b.label} className="card p-2.5">
             <p className="text-[11px] text-slate-400 mb-0.5">{b.label}</p>
@@ -700,7 +703,7 @@ export default function ExpensesPage() {
                   <div>
                     <label className="text-xs text-slate-500 mb-1 block">구분</label>
                     <div className="flex gap-2">
-                      {SCOPES.map(s => (
+                      {scopeOptions.map(s => (
                         <button key={s} onClick={() => setForm(f => {
                           const first = BUDGET_CATEGORIES.find(c => c.scope === s)
                           const keep = BUDGET_CATEGORIES.find(c => c.value === f.category && c.scope === s)

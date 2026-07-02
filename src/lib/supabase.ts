@@ -43,6 +43,18 @@ export type ClinicFinance = {
   created_at: string
 }
 
+export type WeddingGift = {
+  id: string
+  name: string
+  amount: number
+  date?: string
+  method?: string
+  thanked?: boolean
+  repaid?: boolean
+  note?: string
+  created_at: string
+}
+
 export type Account = {
   id: string
   site: string

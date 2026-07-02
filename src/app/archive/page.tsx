@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase, ArchiveItem } from '@/lib/supabase'
+import { supabase, ArchiveItem, WeddingGift } from '@/lib/supabase'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, X, Trash2, FolderOpen, ExternalLink, Paperclip, Download } from 'lucide-react'
@@ -20,6 +20,40 @@ export default function ArchivePage() {
   const [inviteYear, setInviteYear] = useState(new Date().getFullYear() - 1) // 기본: 작년
   const [downloading, setDownloading] = useState(false)
   const [form, setForm] = useState({ title: '', category: '기타', file_url: '', note: '', item_date: TODAY })
+  // 축의금
+  const [gifts, setGifts] = useState<WeddingGift[]>([])
+  const [giftQuery, setGiftQuery] = useState('')
+  const [showGiftModal, setShowGiftModal] = useState(false)
+  const [editGift, setEditGift] = useState<WeddingGift | null>(null)
+  const [giftForm, setGiftForm] = useState({ name: '', amount: '', date: '', method: '', note: '' })
+
+  const fetchGifts = async () => {
+    const { data } = await supabase.from('wedding_gifts').select('*').order('name', { ascending: true })
+    setGifts(data || [])
+  }
+  useEffect(() => { if (filterCat === '청첩장') fetchGifts() }, [filterCat])
+
+  const openAddGift = () => { setEditGift(null); setGiftForm({ name: '', amount: '', date: '', method: '', note: '' }); setShowGiftModal(true) }
+  const openEditGift = (g: WeddingGift) => {
+    setEditGift(g)
+    setGiftForm({ name: g.name, amount: g.amount ? g.amount.toLocaleString() : '', date: g.date || '', method: g.method || '', note: g.note || '' })
+    setShowGiftModal(true)
+  }
+  const saveGift = async () => {
+    if (!giftForm.name.trim()) return
+    const payload = { name: giftForm.name, amount: parseInt(giftForm.amount.replace(/[^0-9]/g, '') || '0', 10), date: giftForm.date || null, method: giftForm.method || null, note: giftForm.note || null }
+    const res = editGift
+      ? await supabase.from('wedding_gifts').update(payload).eq('id', editGift.id)
+      : await supabase.from('wedding_gifts').insert(payload)
+    if (res.error) { alert('저장 실패: ' + res.error.message); return }
+    await fetchGifts(); setShowGiftModal(false); setEditGift(null)
+  }
+  const deleteGift = async () => {
+    if (!editGift || !confirm('삭제할까요?')) return
+    await supabase.from('wedding_gifts').delete().eq('id', editGift.id)
+    await fetchGifts(); setShowGiftModal(false); setEditGift(null)
+  }
+  const giftMatches = giftQuery.trim() ? gifts.filter(g => g.name.includes(giftQuery.trim())) : []
 
   const fetchItems = async () => {
     const { data } = await supabase.from('archive_items').select('*').order('item_date', { ascending: false, nullsFirst: false })
@@ -144,6 +178,41 @@ export default function ArchivePage() {
             className="flex items-center gap-1 bg-teal-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-teal-600 disabled:opacity-50 transition-colors">
             <Download size={15} /> {downloading ? '다운로드 중...' : '다운로드'}
           </button>
+        </div>
+      )}
+
+      {/* 청첩장 → 축의금 조회/기록 */}
+      {filterCat === '청첩장' && (
+        <div className="card p-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-slate-800 text-sm">💰 축의금 조회 (내가 받은 내역)</h3>
+            <button onClick={openAddGift} className="text-xs bg-rose-500 text-white px-3 py-1.5 rounded-lg hover:bg-rose-600 transition-colors">+ 축의금 추가</button>
+          </div>
+          <p className="text-[11px] text-slate-400 mb-2">청첩장을 준 사람 이름을 입력하면, 그 사람이 예전에 나에게 준 축의금을 찾아줍니다.</p>
+          <input value={giftQuery} onChange={e => setGiftQuery(e.target.value)} placeholder="이름 검색 (예: 손기진)"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400 mb-2" />
+          {gifts.length === 0 ? (
+            <div className="text-center py-3">
+              <p className="text-xs text-slate-400 mb-2">축의금 데이터가 없습니다.</p>
+              <button onClick={async () => { if (!confirm('노션 축의금 목록을 불러올까요?')) return; const r = await fetch('/api/import-gifts', { method: 'POST' }); const j = await r.json(); alert(j.message || j.error || '완료'); fetchGifts() }}
+                className="text-xs bg-slate-700 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors">노션 데이터 불러오기</button>
+            </div>
+          ) : giftQuery.trim() === '' ? (
+            <p className="text-xs text-slate-400">이름을 입력하면 검색됩니다. (총 {gifts.length}건 · 합계 {gifts.reduce((s, g) => s + (g.amount || 0), 0).toLocaleString()}원)</p>
+          ) : giftMatches.length === 0 ? (
+            <p className="text-xs text-slate-400">&apos;{giftQuery}&apos; 님이 준 축의금 기록이 없어요.</p>
+          ) : (
+            <div className="space-y-1">
+              {giftMatches.map(g => (
+                <div key={g.id} onDoubleClick={() => openEditGift(g)} className="flex items-center gap-2 text-sm bg-rose-50 rounded-lg px-3 py-2 cursor-pointer">
+                  <span className="font-medium text-slate-800 flex-1">{g.name}</span>
+                  {g.method && <span className="text-[10px] text-slate-400">{g.method}</span>}
+                  {g.date && <span className="text-[10px] text-slate-400">{g.date}</span>}
+                  <span className="font-bold text-rose-600">{(g.amount || 0).toLocaleString()}원</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -273,6 +342,49 @@ export default function ArchivePage() {
                 className="w-full bg-teal-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-teal-600 disabled:opacity-50 transition-colors">
                 저장
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 축의금 추가/수정 모달 */}
+      {showGiftModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowGiftModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-slate-800">{editGift ? '축의금 수정' : '축의금 추가'}</h3>
+              <button onClick={() => setShowGiftModal(false)}><X size={20} className="text-slate-400" /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">이름 *</label>
+                <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400"
+                  value={giftForm.name} onChange={e => setGiftForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">금액</label>
+                  <input inputMode="numeric" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400"
+                    value={giftForm.amount} onChange={e => { const n = e.target.value.replace(/[^0-9]/g, ''); setGiftForm(f => ({ ...f, amount: n ? Number(n).toLocaleString() : '' })) }} />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">날짜</label>
+                  <DatePickerInput value={giftForm.date} onChange={v => setGiftForm(f => ({ ...f, date: v }))} className="w-full" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">방식 (선택)</label>
+                <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400"
+                  placeholder="현금/계좌이체/토스..." value={giftForm.method} onChange={e => setGiftForm(f => ({ ...f, method: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">비고 (선택)</label>
+                <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400"
+                  value={giftForm.note} onChange={e => setGiftForm(f => ({ ...f, note: e.target.value }))} />
+              </div>
+              {editGift && <button onClick={deleteGift} className="w-full border border-red-200 text-red-400 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">삭제</button>}
+              <button onClick={saveGift} disabled={!giftForm.name.trim()}
+                className="w-full bg-rose-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-rose-600 disabled:opacity-50 transition-colors">저장</button>
             </div>
           </div>
         </div>

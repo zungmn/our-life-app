@@ -105,3 +105,18 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public access" ON accounts FOR ALL USING (true) WITH CHECK (true);
+
+-- 축의금 받은 목록 (청첩장 상환 참고용)
+CREATE TABLE IF NOT EXISTS wedding_gifts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  amount BIGINT DEFAULT 0,
+  date DATE,
+  method TEXT,
+  thanked BOOLEAN DEFAULT FALSE,
+  repaid BOOLEAN DEFAULT FALSE,
+  note TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE wedding_gifts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public access" ON wedding_gifts FOR ALL USING (true) WITH CHECK (true);

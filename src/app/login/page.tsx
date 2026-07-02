@@ -15,6 +15,8 @@ export default function LoginPage() {
     const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, pw }) })
     const j = await res.json()
     if (!res.ok) { setError(j.error || '로그인 실패'); setLoading(false); return }
+    // 로그인한 사람 기준으로 기본 화면(Eddy/Judy) 설정
+    if (j.viewer) { localStorage.setItem('viewer', j.viewer); window.dispatchEvent(new CustomEvent('viewer-change')) }
     router.replace('/')
     router.refresh()
   }
