@@ -6,8 +6,9 @@ import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, X, Trash2, FolderOpen, ExternalLink, Paperclip, Download } from 'lucide-react'
 import DatePickerInput from '@/components/DatePickerInput'
+import AccountsPage from '@/app/accounts/page'
 
-const CATEGORIES = ['사진', '기록증/수료증', '건강', '재정', '마라톤', '청첩장', '기타']
+const CATEGORIES = ['사진', '기록증/수료증', '건강', '재정', '마라톤', '청첩장', '계정', '기타']
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 
 export default function ArchivePage() {
@@ -151,10 +152,12 @@ export default function ArchivePage() {
           <h2 className="text-xl font-bold text-slate-800">📁 자료실</h2>
           <p className="text-xs text-slate-400 mt-0.5">증명사진, 기록증, 중요 자료 보관</p>
         </div>
-        <button onClick={() => { setForm({ title: '', category: '기타', file_url: '', note: '', item_date: TODAY }); setShowModal(true) }}
-          className="flex items-center gap-1 bg-teal-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-teal-600 transition-colors">
-          <Plus size={16} /> 추가
-        </button>
+        {filterCat !== '계정' && (
+          <button onClick={() => { setForm({ title: '', category: '기타', file_url: '', note: '', item_date: TODAY }); setShowModal(true) }}
+            className="flex items-center gap-1 bg-teal-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-teal-600 transition-colors">
+            <Plus size={16} /> 추가
+          </button>
+        )}
       </div>
 
       <div className="flex gap-2 flex-wrap mb-4">
@@ -216,7 +219,9 @@ export default function ArchivePage() {
         </div>
       )}
 
-      {displayed.length === 0 ? (
+      {filterCat === '계정' && <AccountsPage embedded />}
+
+      {filterCat !== '계정' && (displayed.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
           <FolderOpen size={48} className="mx-auto mb-3 text-slate-200" />
           <p className="text-sm">자료를 추가해보세요</p>
@@ -243,7 +248,7 @@ export default function ArchivePage() {
             </button>
           ))}
         </div>
-      )}
+      ))}
 
       {/* Detail modal */}
       {selected && (

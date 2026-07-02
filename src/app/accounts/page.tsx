@@ -2,18 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { supabase, Account } from '@/lib/supabase'
-import { Plus, X, Trash2, Search, Eye, EyeOff, Copy, ExternalLink, KeyRound } from 'lucide-react'
+import { Plus, X, Trash2, Search, Copy, ExternalLink, KeyRound } from 'lucide-react'
 
 const EMPTY = { site: '', category: '', username: '', password: '', extra_password: '', url: '', note: '' }
 
-export default function AccountsPage() {
+export default function AccountsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [query, setQuery] = useState('')
   const [filterCat, setFilterCat] = useState('전체')
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState<Account | null>(null)
   const [form, setForm] = useState(EMPTY)
-  const [reveal, setReveal] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(false)
 
   const fetchAccounts = async () => {
@@ -62,10 +61,10 @@ export default function AccountsPage() {
   const catColor = (c?: string) => c === '치과' ? 'bg-blue-50 text-blue-600' : c === '은행/카드' ? 'bg-rose-50 text-rose-600' : c === '여행' ? 'bg-teal-50 text-teal-600' : 'bg-slate-100 text-slate-500'
 
   return (
-    <div className="p-6 md:p-10 max-w-full">
+    <div className={embedded ? 'max-w-full' : 'p-6 md:p-10 max-w-full'}>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">🔐 계정</h2>
+          {!embedded && <h2 className="text-2xl font-bold text-slate-800">🔐 계정</h2>}
           <p className="text-xs text-slate-400 mt-0.5">총 {accounts.length}개</p>
         </div>
         <button onClick={openAdd} className="flex items-center gap-1 bg-slate-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-800 transition-colors">
@@ -100,42 +99,29 @@ export default function AccountsPage() {
           }} className="bg-slate-700 text-white text-sm px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors">노션 데이터 불러오기</button>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {filtered.map(a => (
-            <div key={a.id} onDoubleClick={() => openEdit(a)} className="card p-3 group cursor-pointer">
-              <div className="flex items-center gap-2 mb-1">
-                <p className="font-semibold text-slate-800 text-sm flex-1 truncate">{a.site}</p>
-                {a.category && <span className={`text-[10px] px-2 py-0.5 rounded-full ${catColor(a.category)}`}>{a.category}</span>}
-                {a.url && <a href={a.url.startsWith('http') ? a.url : `https://${a.url}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-slate-300 hover:text-blue-500"><ExternalLink size={14} /></a>}
-                <button onClick={() => openEdit(a)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-blue-500 transition-all">✏️</button>
+            <div key={a.id} onDoubleClick={() => openEdit(a)} className="card p-2.5 group cursor-pointer">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <p className="font-semibold text-slate-800 text-sm truncate">{a.site}</p>
+                {a.category && <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${catColor(a.category)}`}>{a.category}</span>}
+                <div className="flex-1" />
+                {a.url && <a href={a.url.startsWith('http') ? a.url : `https://${a.url}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-slate-300 hover:text-blue-500"><ExternalLink size={13} /></a>}
+                <button onClick={() => openEdit(a)} className="text-slate-300 hover:text-blue-500 transition-colors">✏️</button>
               </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                {a.username && (
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="text-slate-400 flex-shrink-0">ID</span>
-                    <span className="text-slate-700 truncate">{a.username}</span>
-                    <button onClick={e => { e.stopPropagation(); copy(a.username) }} className="text-slate-300 hover:text-slate-600"><Copy size={11} /></button>
-                  </div>
-                )}
-                {a.password && (
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="text-slate-400 flex-shrink-0">PW</span>
-                    <span className="text-slate-700 truncate font-mono">{reveal[a.id] ? a.password : '••••••'}</span>
-                    <button onClick={e => { e.stopPropagation(); setReveal(r => ({ ...r, [a.id]: !r[a.id] })) }} className="text-slate-300 hover:text-slate-600">{reveal[a.id] ? <EyeOff size={11} /> : <Eye size={11} />}</button>
-                    <button onClick={e => { e.stopPropagation(); copy(a.password) }} className="text-slate-300 hover:text-slate-600"><Copy size={11} /></button>
-                  </div>
-                )}
-                {a.extra_password && (
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="text-slate-400 flex-shrink-0">+PW</span>
-                    <span className="text-slate-700 truncate font-mono">{reveal[a.id] ? a.extra_password : '••••'}</span>
-                  </div>
-                )}
-                {a.note && <div className="col-span-2 text-slate-400 truncate">📝 {a.note}</div>}
+              <div className="flex items-center gap-1 text-xs min-w-0">
+                <span className="text-slate-400 flex-shrink-0">ID</span>
+                <span className="text-slate-700 truncate">{a.username || '-'}</span>
+                {a.username && <button onClick={e => { e.stopPropagation(); copy(a.username) }} className="text-slate-300 hover:text-slate-600 flex-shrink-0"><Copy size={10} /></button>}
+                <span className="text-slate-400 flex-shrink-0 ml-2">PW</span>
+                <span className="text-slate-700 truncate font-mono">{a.password || '-'}</span>
+                {a.password && <button onClick={e => { e.stopPropagation(); copy(a.password) }} className="text-slate-300 hover:text-slate-600 flex-shrink-0"><Copy size={10} /></button>}
+                {a.extra_password && <><span className="text-slate-400 flex-shrink-0 ml-2">+</span><span className="text-slate-700 truncate font-mono">{a.extra_password}</span></>}
               </div>
+              {a.note && <p className="text-[11px] text-slate-400 truncate mt-0.5">📝 {a.note}</p>}
             </div>
           ))}
-          {filtered.length === 0 && <p className="text-sm text-slate-400 text-center py-8">검색 결과가 없어요</p>}
+          {filtered.length === 0 && <p className="col-span-2 text-sm text-slate-400 text-center py-8">검색 결과가 없어요</p>}
         </div>
       )}
 
