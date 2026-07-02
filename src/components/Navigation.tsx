@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, BookOpen, PiggyBank, NotebookPen, Star, Home, CheckSquare, FolderKanban, Archive } from 'lucide-react'
+import { CalendarDays, BookOpen, PiggyBank, NotebookPen, Star, Home, CheckSquare, FolderKanban, Archive, KeyRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 const sharedItems = [
@@ -17,6 +17,7 @@ const eddyOnlyItems = [
   { href: '/books', icon: BookOpen, label: '독서' },
   { href: '/journal', icon: NotebookPen, label: '일기' },
   { href: '/life-notes', icon: Star, label: '기록' },
+  { href: '/accounts', icon: KeyRound, label: '계정' },
   { href: '/archive', icon: Archive, label: '자료실' },
 ]
 
@@ -67,8 +68,12 @@ export default function Navigation() {
             </>
           )}
         </nav>
-        <div className="p-4 border-t border-slate-100 text-xs text-slate-400 text-center">
-          Eddy & Judy house 🏠
+        <div className="p-3 border-t border-slate-100">
+          <button onClick={async () => { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login' }}
+            className="w-full text-xs text-slate-400 hover:text-slate-600 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
+            로그아웃
+          </button>
+          <p className="text-[10px] text-slate-300 text-center mt-1">Eddy &amp; Judy house 🏠</p>
         </div>
       </aside>
 

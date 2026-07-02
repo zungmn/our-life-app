@@ -580,10 +580,13 @@ export default function ExpensesPage() {
                   <div key={o.key} className="card p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-semibold text-slate-800">{periodLabel(o.key)}</span>
-                      <span className={`text-sm font-bold ${o.income - o.expense >= 0 ? 'text-green-600' : 'text-red-500'}`}>{o.income - o.expense >= 0 ? '+' : ''}{fmt(o.income - o.expense - o.saving)}</span>
+                      <span className="text-right">
+                        <span className="block text-[10px] text-slate-400">순이익 (매출−병원경비)</span>
+                        <span className={`text-sm font-bold ${o.revenue - o.hospital >= 0 ? 'text-green-600' : 'text-red-500'}`}>{o.revenue - o.hospital >= 0 ? '+' : ''}{fmt(o.revenue - o.hospital)}</span>
+                      </span>
                     </div>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                      <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-green-600 font-medium">{won(o.income)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">매출</span><span className="text-green-600 font-medium">{won(o.revenue)}</span></div>
                       <div className="flex justify-between"><span className="text-slate-400">지출</span><span className="text-red-500 font-medium">{won(o.expense)}</span></div>
                       <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(o.hospital)}</span></div>
                       <div className="flex justify-between"><span className="text-teal-500">가계</span><span className="text-slate-600">{won(o.household)}</span></div>
@@ -594,14 +597,12 @@ export default function ExpensesPage() {
                 ))}
               </div>
             )}
-            <p className="text-[10px] text-slate-400 mt-1">금액 단위 만원 · 상단 금액은 순수지(수입−지출−저축)</p>
+            <p className="text-[10px] text-slate-400 mt-1">금액 단위 만원 · 순이익 = 매출 − 병원 경비</p>
           </div>
 
           {/* 분류 분석 (최신 기간 vs 직전 기간, 증감률) */}
           {curKey && [
             { title: '🏥 병원 경비 분류별', rows: anaHospital, rev: true, invert: false },
-            { title: '🏠 가계 분류별', rows: anaHousehold, rev: false, invert: false },
-            { title: '💰 저축 분류별', rows: anaSaving, rev: false, invert: true },
           ].map(sec => sec.rows.length > 0 && (
             <div key={sec.title} className="card p-4">
               <div className="flex items-center justify-between mb-3">

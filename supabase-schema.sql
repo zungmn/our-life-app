@@ -90,3 +90,18 @@ CREATE POLICY "Public access" ON clinic_finance FOR ALL USING (true) WITH CHECK 
 
 -- 일정에 사진 여러 장 첨부
 ALTER TABLE events ADD COLUMN IF NOT EXISTS photos text[] DEFAULT '{}';
+
+-- 계정 관리
+CREATE TABLE IF NOT EXISTS accounts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  site TEXT NOT NULL,
+  category TEXT,
+  username TEXT,
+  password TEXT,
+  extra_password TEXT,
+  url TEXT,
+  note TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public access" ON accounts FOR ALL USING (true) WITH CHECK (true);

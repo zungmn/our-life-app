@@ -43,6 +43,18 @@ export type ClinicFinance = {
   created_at: string
 }
 
+export type Account = {
+  id: string
+  site: string
+  category?: string
+  username?: string
+  password?: string
+  extra_password?: string
+  url?: string
+  note?: string
+  created_at: string
+}
+
 export type Book = {
   id: string
   title: string
