@@ -55,6 +55,8 @@ export default function ExpensesPage() {
   const [catOpen, setCatOpen] = useState(false)
   const [uploadName, setUploadName] = useState('')
   const [statPeriod, setStatPeriod] = useState<'month' | 'year'>('month')
+  const [statYear, setStatYear] = useState(new Date().getFullYear())
+  const [analysisMonth, setAnalysisMonth] = useState<string | null>(null) // A카드: 특정 월 상세, null=6개월평균
   const [yearItemsRaw, setYearItemsRaw] = useState<CalItem[]>([])
   const [allItems, setAllItems] = useState<CalItem[]>([])
   const [ymEdit, setYmEdit] = useState(false)
@@ -415,6 +417,52 @@ export default function ExpensesPage() {
   const YEAR_COLORS: Record<string, string> = { }
   recentYears.forEach((y, i) => { YEAR_COLORS[y] = ['#3B82F6', '#F59E0B', '#EC4899', '#10B981'][i] || '#94A3B8' })
 
+  // ===== 월간 통계 (연도 선택 + 월 카드 + A 분석) =====
+  const monthMap: Record<string, Agg> = {}
+  for (const it of allItems) { const k = it.date.slice(0, 7); const o = monthMap[k] = monthMap[k] || emptyAgg(k); if (it.type === 'income') o.income += it.amount; else if (it.is_saving) o.saving += it.amount; else { o.expense += it.amount; o[it.scope] += it.amount } }
+  const revMonth = (k: string) => viewer === 'eddy' && typeof window !== 'undefined' ? toNum(localStorage.getItem(`clinic_revenue_${k}`) || '0') : 0
+  const monthAgg = (k: string): Agg => { const o = monthMap[k] || emptyAgg(k); const rev = revMonth(k); return { ...o, revenue: rev, income: o.income + rev } }
+  const dataYears = Array.from(new Set([...Object.keys(monthMap).map(k => k.slice(0, 4)), ...recentYears, String(new Date().getFullYear())])).map(Number).sort((a, b) => b - a)
+  const monthCards = (() => {
+    const now = new Date()
+    const maxM = statYear === now.getFullYear() ? now.getMonth() + 1 : 12
+    const arr: string[] = []
+    for (let m = maxM; m >= 1; m--) arr.push(`${statYear}-${String(m).padStart(2, '0')}`)
+    return arr
+  })()
+  // 병원경비 6개월(지난달까지) 평균 분류별
+  const hosp6Avg = (() => {
+    const months: string[] = []
+    for (let i = 1; i <= 6; i++) months.push(format(subMonths(currentDate, i), 'yyyy-MM'))
+    const sum: Record<string, number> = {}
+    for (const k of months) { const cm = hospCatByMonth[k] || {}; for (const c of Object.keys(cm)) sum[c] = (sum[c] || 0) + cm[c] }
+    const cats = Object.entries(sum).map(([name, tot]) => ({ name, avg: Math.round(tot / 6), color: catColorOf2(name === '임대료+관리비' ? '임대료' : name) }))
+    const total = cats.reduce((s, c) => s + c.avg, 0)
+    return { months, total, cats: cats.map(c => ({ ...c, pct: total ? Math.round(c.avg / total * 1000) / 10 : 0 })).sort((a, b) => b.avg - a.avg) }
+  })()
+  const hospMonthDetail = (k: string) => {
+    const cm = hospCatByMonth[k] || {}
+    const cats = Object.entries(cm).map(([name, amt]) => ({ name, amt, color: catColorOf2(name === '임대료+관리비' ? '임대료' : name) }))
+    const total = cats.reduce((s, c) => s + c.amt, 0)
+    return { total, cats: cats.map(c => ({ ...c, pct: total ? Math.round(c.amt / total * 1000) / 10 : 0 })).sort((a, b) => b.amt - a.amt) }
+  }
+  const hospDeltas = (k: string) => {
+    const cur = hospByMonth[k] || 0
+    const [y, m] = k.split('-').map(Number)
+    const base = new Date(y, m - 1, 1)
+    const pm = hospByMonth[format(subMonths(base, 1), 'yyyy-MM')] || 0
+    const ly = hospByMonth[`${y - 1}-${String(m).padStart(2, '0')}`] || 0
+    let s = 0; for (let i = 1; i <= 6; i++) s += hospByMonth[format(subMonths(base, i), 'yyyy-MM')] || 0
+    return { dPrev: deltaPct(cur, pm), dYear: deltaPct(cur, ly), dAvg6: deltaPct(cur, s / 6) }
+  }
+  // 증감률 배지 (상승 빨강, 하락 파랑)
+  const deltaBadge = (d: number | null, label: string) => (
+    <span className="inline-flex items-center gap-0.5 text-[10px]">
+      <span className="text-slate-400">{label}</span>
+      {d == null ? <span className="text-slate-300">–</span> : <span className={d > 0 ? 'text-red-500' : d < 0 ? 'text-blue-500' : 'text-slate-400'}>{d > 0 ? '▲' : d < 0 ? '▼' : ''}{Math.abs(d)}%</span>}
+    </span>
+  )
+
   // 캘린더 그리드 (필요한 만큼만 5주/6주)
   const weeks = Math.ceil((startPad + endOfMonth(currentDate).getDate()) / 7)
   const gridDays = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i))
@@ -449,13 +497,25 @@ export default function ExpensesPage() {
 
       {/* Tabs */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex gap-1">
-          {[{ k: 'calendar', l: '캘린더' }, { k: 'stats', l: '통계' }].map(t => (
-            <button key={t.k} onClick={() => setTab(t.k as typeof tab)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === t.k ? 'bg-blue-500 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
-              {t.l}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {[{ k: 'calendar', l: '캘린더' }, { k: 'stats', l: '통계' }].map(t => (
+              <button key={t.k} onClick={() => setTab(t.k as typeof tab)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === t.k ? 'bg-blue-500 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
+                {t.l}
+              </button>
+            ))}
+          </div>
+          {tab === 'stats' && (
+            <div className="flex gap-1 border-l border-slate-200 pl-2">
+              {([['month', '월간'], ['year', '연간']] as const).map(([k, l]) => (
+                <button key={k} onClick={() => { setStatPeriod(k); setAnalysisMonth(null) }}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${statPeriod === k ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:bg-slate-100'}`}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <button onClick={() => openAdd()}
           className="flex items-center gap-1 bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors">
@@ -591,94 +651,87 @@ export default function ExpensesPage() {
       {/* Stats */}
       {tab === 'stats' && (
         <div className="space-y-4">
-          {/* 월간 / 연간 토글 */}
-          <div className="flex gap-1">
-            {([['month', '월간 통계'], ['year', '연간 통계']] as const).map(([k, l]) => (
-              <button key={k} onClick={() => setStatPeriod(k)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statPeriod === k ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
-                {l}
-              </button>
-            ))}
-          </div>
+          {/* 연도 선택 (월간: 그 해 12개월) */}
+          {statPeriod === 'month' && (
+            <div className="flex gap-1.5 flex-wrap">
+              {dataYears.map(y => (
+                <button key={y} onClick={() => { setStatYear(y); setAnalysisMonth(null) }}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${statYear === y ? 'bg-indigo-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
+                  {y}년
+                </button>
+              ))}
+            </div>
+          )}
           {statPeriod === 'month' ? (
-            <>
-              {/* 지출 분석 (병원 경비) */}
+            <div className="flex flex-col md:flex-row gap-3 items-start">
+              {/* 월 카드 (최신 월 먼저) */}
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-2 w-full">
+                {monthCards.map(k => {
+                  const a = monthAgg(k); const profit = a.revenue - a.hospital; const d = hospDeltas(k)
+                  const active = analysisMonth === k
+                  return (
+                    <button key={k} onClick={() => setAnalysisMonth(active ? null : k)}
+                      className={`card p-2.5 text-left transition-shadow hover:shadow-md ${active ? 'ring-2 ring-indigo-300' : ''}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-slate-700">{parseInt(k.slice(5, 7))}월</span>
+                        <span className={`text-xs font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-2 text-[10px] mb-1">
+                        <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(a.revenue)}</span></div>
+                        <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(a.hospital)}</span></div>
+                      </div>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-slate-50 pt-1">
+                        {deltaBadge(d.dPrev, '전월')}{deltaBadge(d.dYear, '작년')}{deltaBadge(d.dAvg6, '6M')}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              {/* A: 병원 경비 분석 */}
               {viewer === 'eddy' && (
-                <div className="card p-4 overflow-x-auto">
-                  <h3 className="font-semibold text-slate-800 mb-1 text-sm">💉 지출 분석 (병원 경비) <span className="text-[11px] text-slate-400 font-normal">{format(currentDate, 'yyyy년 M월')}</span></h3>
-                  <p className="text-[10px] text-slate-400 mb-2">증가=빨강, 감소=초록 · 전월/전년동월/최근6개월평균 대비</p>
-                  {expenseAnalysis.length === 0 || expenseAnalysis[0].cur === 0 ? (
-                    <p className="text-xs text-slate-400 py-3 text-center">이 달 병원 경비 내역이 없어요</p>
-                  ) : (
-                    <table className="w-full text-xs whitespace-nowrap">
-                      <thead><tr className="text-slate-400 border-b border-slate-100">
-                        <th className="text-left py-1.5 font-medium">항목</th>
-                        <th className="text-right px-2 font-medium">금액</th>
-                        <th className="text-right px-2 font-medium">전월</th>
-                        <th className="text-right px-2 font-medium">전년동월</th>
-                        <th className="text-right px-2 font-medium">6개월평균</th>
-                      </tr></thead>
-                      <tbody>
-                        {expenseAnalysis.map(r => {
-                          const cell = (d: number | null) => d == null ? <span className="text-slate-300">–</span>
-                            : <span className={d > 0 ? 'text-red-500' : d < 0 ? 'text-green-500' : 'text-slate-400'}>{d > 0 ? '▲' : d < 0 ? '▼' : ''}{Math.abs(d)}%</span>
-                          const isTotal = r.name === '병원 경비 전체'
-                          return (
-                            <tr key={r.name} className={`border-b border-slate-50 ${isTotal ? 'font-semibold' : ''}`}>
-                              <td className="py-1.5 text-slate-700">{r.name}</td>
-                              <td className="text-right px-2 text-slate-700">{fmt(r.cur)}</td>
-                              <td className="text-right px-2">{cell(r.dPrev)}</td>
-                              <td className="text-right px-2">{cell(r.dYear)}</td>
-                              <td className="text-right px-2">{cell(r.dAvg6)}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              )}
-
-              {/* 월별 개요 (연도별 묶음) */}
-              <div>
-                <h3 className="font-semibold text-slate-800 mb-2 text-sm">월별 개요 <span className="text-[11px] text-slate-400 font-normal">(순수익 = 수입 − 병원경비)</span></h3>
-                {overview.length === 0 ? <p className="text-sm text-slate-400 py-4 text-center card">데이터가 없어요</p> : (
-                  Object.entries(overview.reduce((acc, o) => { const y = o.key.slice(0, 4); (acc[y] = acc[y] || []).push(o); return acc }, {} as Record<string, Agg[]>))
-                    .sort((a, b) => a[0] < b[0] ? 1 : -1).map(([year, months]) => (
-                      <div key={year} className="mb-3">
-                        <h4 className="text-xs font-semibold text-slate-500 mb-1.5">{year}년</h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {months.map(o => (
-                            <div key={o.key} className="card p-2.5">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs font-semibold text-slate-700">{parseInt(o.key.slice(5, 7))}월</span>
-                                <span className={`text-xs font-bold ${o.revenue - o.hospital >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(o.revenue - o.hospital)}</span>
-                              </div>
-                              <div className="space-y-0.5 text-[10px]">
-                                <div className="flex justify-between"><span className="text-slate-400">수입/지출</span><span className="text-slate-600">{won(o.income)}/{won(o.expense)}</span></div>
-                                <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(o.hospital)}</span></div>
-                                <div className="flex justify-between"><span className="text-teal-500">가계/개인</span><span className="text-slate-600">{won(o.household)}/{won(o.personal)}</span></div>
-                                <div className="flex justify-between"><span className="text-indigo-500">저축</span><span className="text-slate-600">{won(o.saving)}</span></div>
-                              </div>
+                <div className="card p-3 w-full md:w-[36%] md:min-w-[240px] flex-shrink-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    {analysisMonth && <button onClick={() => setAnalysisMonth(null)} className="text-slate-400 hover:text-slate-700 text-base leading-none">←</button>}
+                    <h3 className="font-semibold text-slate-800 text-sm flex-1">🏥 병원 경비 분석</h3>
+                    <span className="text-[10px] text-slate-400">{analysisMonth ? `${analysisMonth.slice(0, 4)}년 ${parseInt(analysisMonth.slice(5, 7))}월` : '최근 6개월 평균'}</span>
+                  </div>
+                  {(() => {
+                    const data = analysisMonth ? hospMonthDetail(analysisMonth) : { total: hosp6Avg.total, cats: hosp6Avg.cats.map(c => ({ name: c.name, amt: c.avg, pct: c.pct, color: c.color })) }
+                    if (data.cats.length === 0) return <p className="text-xs text-slate-400 py-4 text-center">데이터가 없어요</p>
+                    return (
+                      <>
+                        <p className="text-xs text-slate-500 mb-2">총 {fmt(data.total)}{analysisMonth ? '' : ' (월평균)'}</p>
+                        <div className="space-y-1.5">
+                          {data.cats.map(c => (
+                            <div key={c.name} className="flex items-center gap-2 text-xs">
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                              <span className="text-slate-600 flex-1 truncate">{c.name}</span>
+                              <span className="text-slate-700 font-medium">{fmt(c.amt)}</span>
+                              <span className="text-slate-400 w-10 text-right">{c.pct}%</span>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    ))
-                )}
-                <p className="text-[10px] text-slate-400">단위 만원 · 순수익 강조 표시</p>
-              </div>
-            </>
+                        <p className="text-[10px] text-slate-400 mt-2">월 카드를 누르면 그 달 상세, ← 로 평균 복귀</p>
+                      </>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
           ) : (
             <>
               {/* 연도별 개요(최근 3년) + 순수익 그래프 */}
               <div className="flex flex-wrap gap-2 items-stretch">
-                {overview.slice(0, 3).map(o => (
+                {overview.slice(0, 3).map((o, i) => {
+                  const prev = overview[i + 1]; const profit = o.revenue - o.hospital
+                  const d = prev ? deltaPct(profit, prev.revenue - prev.hospital) : null
+                  return (
                   <div key={o.key} className="card p-2.5 w-[calc(16.66%-0.5rem)] min-w-[110px]">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-semibold text-slate-700">{o.key}년</span>
+                      {deltaBadge(d, '')}
                     </div>
-                    <p className={`text-sm font-bold mb-1 ${o.revenue - o.hospital >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(o.revenue - o.hospital)}</p>
+                    <p className={`text-sm font-bold mb-1 ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</p>
                     <div className="space-y-0.5 text-[10px]">
                       <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(o.revenue)}</span></div>
                       <div className="flex justify-between"><span className="text-red-400">지출</span><span className="text-slate-600">{won(o.expense)}</span></div>
@@ -688,7 +741,7 @@ export default function ExpensesPage() {
                       <div className="flex justify-between"><span className="text-indigo-500">저축</span><span className="text-slate-600">{won(o.saving)}</span></div>
                     </div>
                   </div>
-                ))}
+                )})}
                 <div className="card p-3 flex-1 min-w-[280px]">
                   <h3 className="font-semibold text-slate-800 mb-1 text-xs">📈 순수익 추이 (최근 3년, 매출−병원경비)</h3>
                   <ResponsiveContainer width="100%" height={200}>
@@ -705,11 +758,14 @@ export default function ExpensesPage() {
               {/* 이전 연도 */}
               {olderYears.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {overview.slice(3).map(o => (
+                  {overview.slice(3).map((o, idx) => {
+                    const prev = overview[idx + 4]; const profit = o.revenue - o.hospital
+                    const d = prev ? deltaPct(profit, prev.revenue - prev.hospital) : null
+                    return (
                     <div key={o.key} className="card p-2.5">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-slate-700">{o.key}년</span>
-                        <span className={`text-xs font-bold ${o.revenue - o.hospital >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(o.revenue - o.hospital)}</span>
+                        <span className="text-xs font-semibold text-slate-700">{o.key}년 {deltaBadge(d, '')}</span>
+                        <span className={`text-xs font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-x-2 text-[10px]">
                         <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(o.revenue)}</span></div>
@@ -720,7 +776,7 @@ export default function ExpensesPage() {
                         <div className="flex justify-between"><span className="text-indigo-500">저축</span><span className="text-slate-600">{won(o.saving)}</span></div>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
               <p className="text-[10px] text-slate-400">단위 만원 · 선 그래프는 연도별 월 순수익(매출−병원경비)</p>
