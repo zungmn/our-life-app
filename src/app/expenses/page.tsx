@@ -5,7 +5,7 @@ import { supabase, Transaction, ClinicFinance } from '@/lib/supabase'
 import { BUDGET_CATEGORIES, INCOME_CATEGORIES, SCOPE_LABEL, BudgetScope, catScopeOf, catSavingOf, catColorOf2, normalizeCat } from '@/lib/constants'
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, getDay, isToday, subDays, addDays, isSameMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { Plus, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import DateInput from '@/components/DateInput'
 import { holidaysForYears } from '@/lib/holidays'
@@ -58,6 +58,11 @@ export default function ExpensesPage() {
   const [yearItemsRaw, setYearItemsRaw] = useState<CalItem[]>([])
   const [allItems, setAllItems] = useState<CalItem[]>([])
   const [ymEdit, setYmEdit] = useState(false)
+  // 잔금 현황 (매달 리셋 X, 항상 유지) — localStorage
+  const [balances, setBalances] = useState<Record<string, number>>({})
+  useEffect(() => { try { setBalances(JSON.parse(localStorage.getItem('budget_balances') || '{}')) } catch { setBalances({}) } }, [])
+  const setBalance = (k: string, v: number) => { const nb = { ...balances, [k]: v }; setBalances(nb); localStorage.setItem('budget_balances', JSON.stringify(nb)) }
+  const BALANCE_ITEMS: [string, string][] = [['exposed', '노출 현금'], ['hidden', '비노출 현금'], ['safe', '금고'], ['voucher', '상품권'], ['pharma', '제약']]
   const [monthRevenue, setMonthRevenue] = useState('')
   const [form, setForm] = useState({
     date: format(new Date(), 'yyyy-MM-dd'), type: 'expense' as 'income' | 'expense',
@@ -356,8 +361,53 @@ export default function ExpensesPage() {
     }).filter(x => x.cur > 0 || x.prev > 0).sort((a, b) => b.cur - a.cur)
   }
   const anaHospital = buildAnalysis(i => i.type === 'expense' && !i.is_saving && i.scope === 'hospital')
-  const anaHousehold = buildAnalysis(i => i.type === 'expense' && !i.is_saving && i.scope === 'household')
-  const anaSaving = buildAnalysis(i => i.type === 'expense' && i.is_saving)
+
+  // ===== 지출 분석 (병원 경비: 전월/전년동월/최근6개월평균 대비) =====
+  const hospByMonth: Record<string, number> = {}
+  const hospCatByMonth: Record<string, Record<string, number>> = {}
+  for (const it of allItems) {
+    if (it.type !== 'expense' || it.is_saving || it.scope !== 'hospital') continue
+    const k = it.date.slice(0, 7)
+    hospByMonth[k] = (hospByMonth[k] || 0) + it.amount
+    const cat = mergeRent(it.category)
+    hospCatByMonth[k] = hospCatByMonth[k] || {}
+    hospCatByMonth[k][cat] = (hospCatByMonth[k][cat] || 0) + it.amount
+  }
+  const cmKey = format(currentDate, 'yyyy-MM')
+  const prevMKey = format(subMonths(currentDate, 1), 'yyyy-MM')
+  const lastYearKey = format(subMonths(currentDate, 12), 'yyyy-MM')
+  const deltaPct = (cur: number, base: number) => base > 0 ? Math.round((cur - base) / base * 1000) / 10 : null
+  const expenseAnalysis = (() => {
+    const catNames = new Set<string>(Object.keys(hospCatByMonth[cmKey] || {}))
+    const defs: { name: string; get: (k: string) => number }[] = [{ name: '병원 경비 전체', get: k => hospByMonth[k] || 0 }]
+    for (const c of catNames) defs.push({ name: c, get: k => hospCatByMonth[k]?.[c] || 0 })
+    return defs.map(d => {
+      const cur = d.get(cmKey), pm = d.get(prevMKey), ly = d.get(lastYearKey)
+      let s = 0, n = 0
+      for (let i = 1; i <= 6; i++) { s += d.get(format(subMonths(currentDate, i), 'yyyy-MM')); n++ }
+      const a6 = n ? s / n : 0
+      return { name: d.name, cur, avg6: Math.round(a6), dPrev: deltaPct(cur, pm), dYear: deltaPct(cur, ly), dAvg6: deltaPct(cur, a6) }
+    }).filter(r => r.cur > 0 || r.name === '병원 경비 전체').sort((a, b) => a.name === '병원 경비 전체' ? -1 : b.name === '병원 경비 전체' ? 1 : b.cur - a.cur)
+  })()
+
+  // ===== 3년 순수익 라인차트 (x=1~12월, 연도별 선) =====
+  const profitYears = Array.from(new Set(Object.keys(hospByMonth).map(k => k.slice(0, 4)).concat(
+    typeof window !== 'undefined' && viewer === 'eddy' ? Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) || '').filter(s => s.startsWith('clinic_revenue_')).map(s => s.replace('clinic_revenue_', '').slice(0, 4)) : []
+  ))).sort()
+  const recentYears = profitYears.slice(-3)
+  const olderYears = profitYears.slice(0, -3)
+  const profitChartData = Array.from({ length: 12 }, (_, i) => {
+    const mm = String(i + 1).padStart(2, '0')
+    const row: Record<string, number | string> = { month: `${i + 1}월` }
+    for (const y of recentYears) {
+      const k = `${y}-${mm}`
+      const rev = viewer === 'eddy' && typeof window !== 'undefined' ? toNum(localStorage.getItem(`clinic_revenue_${k}`) || '0') : 0
+      row[y] = rev - (hospByMonth[k] || 0)
+    }
+    return row
+  })
+  const YEAR_COLORS: Record<string, string> = { }
+  recentYears.forEach((y, i) => { YEAR_COLORS[y] = ['#3B82F6', '#F59E0B', '#EC4899', '#10B981'][i] || '#94A3B8' })
 
   // 캘린더 그리드 (필요한 만큼만 5주/6주)
   const weeks = Math.ceil((startPad + endOfMonth(currentDate).getDate()) / 7)
@@ -434,54 +484,55 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* 치과 총 매출 입력 (Eddy 전용) */}
-      {viewer === 'eddy' && (
-        <div className="card p-3 mb-3">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs text-slate-400">이번 달 총 매출 (덴트웹)</p>
-            <span className="text-[10px] text-slate-300">엑셀/HTML 연동 예정</span>
+      {/* 요약(좌 3/4) + 잔금 현황(우 1/4, Eddy) */}
+      <div className="flex gap-3 mb-4">
+        <div className={viewer === 'eddy' ? 'w-3/4' : 'w-full'}>
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <div className="card p-3">
+              <div className="flex items-center justify-between mb-0.5">
+                <p className="text-xs text-slate-400">이번 달 수입</p>
+                {viewer === 'eddy' && (
+                  <button onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/clinic-revenue?month=${format(currentDate, 'yyyy-MM')}`)
+                      const j = await res.json()
+                      if (j.error) { alert('불러오기 실패: ' + j.error); return }
+                      saveRevenue(String(j.total || 0))
+                      if (Array.isArray(j.days)) saveRevenueDays(j.days)
+                      alert(`이번 달 매출 ${Number(j.total || 0).toLocaleString()}원을 불러왔습니다.`)
+                    } catch { alert('연결 실패') }
+                  }} className="text-[10px] px-2 py-0.5 rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors">OS 불러오기</button>
+                )}
+              </div>
+              <p className="text-base font-bold text-green-500">{fmt(displayIncome)}</p>
+            </div>
+            <div className="card p-3"><p className="text-xs text-slate-400 mb-0.5">이번 달 지출</p><p className="text-base font-bold text-red-500">{fmt(totalExpense)}</p></div>
           </div>
-          <div className="flex items-center gap-2">
-            <input type="text" inputMode="numeric" placeholder="총 매출 직접 입력"
-              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
-              value={monthRevenue ? Number(monthRevenue).toLocaleString() : ''}
-              onChange={e => saveRevenue(e.target.value.replace(/[^0-9]/g, ''))} />
-            <span className="text-xs text-slate-400">원</span>
-            <button onClick={async () => {
-              try {
-                const res = await fetch(`/api/clinic-revenue?month=${format(currentDate, 'yyyy-MM')}`)
-                const j = await res.json()
-                if (j.error) { alert('불러오기 실패: ' + j.error); return }
-                saveRevenue(String(j.total || 0))
-                if (Array.isArray(j.days)) saveRevenueDays(j.days)
-                alert(`이번 달 매출 ${Number(j.total || 0).toLocaleString()}원을 불러왔습니다.`)
-              } catch { alert('연결 실패') }
-            }} className="flex-shrink-0 text-xs px-3 py-2 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors">
-              OS에서 불러오기
-            </button>
-            <label className="flex-shrink-0 text-xs px-3 py-2 rounded-lg cursor-pointer border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
-              파일 업로드
-              <input type="file" accept=".xlsx,.xls,.csv,.html,.htm" className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleRevenueFile(f) }} />
-            </label>
+          <div className={`grid ${bucketCards.length === 4 ? 'grid-cols-4' : 'grid-cols-3'} gap-2`}>
+            {bucketCards.map(b => (
+              <div key={b.label} className="card p-2.5">
+                <p className="text-[11px] text-slate-400 mb-0.5">{b.label}</p>
+                <p className={`text-sm font-bold ${b.cls}`}>{fmt(b.val)}</p>
+              </div>
+            ))}
           </div>
-          {uploadName && <p className="text-[11px] text-slate-400 mt-1">📎 {uploadName} · 자동 인식 연동 예정 (지금은 위에 직접 입력)</p>}
         </div>
-      )}
-
-      {/* 수입 / 지출 */}
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="card p-3"><p className="text-xs text-slate-400 mb-0.5">이번 달 수입</p><p className="text-base font-bold text-green-500">{fmt(displayIncome)}</p></div>
-        <div className="card p-3"><p className="text-xs text-slate-400 mb-0.5">이번 달 지출</p><p className="text-base font-bold text-red-500">{fmt(totalExpense)}</p></div>
-      </div>
-      {/* 병원경비 / 가계 / 개인 / 저축 */}
-      <div className={`grid ${bucketCards.length === 4 ? 'grid-cols-4' : 'grid-cols-3'} gap-2 mb-4`}>
-        {bucketCards.map(b => (
-          <div key={b.label} className="card p-2.5">
-            <p className="text-[11px] text-slate-400 mb-0.5">{b.label}</p>
-            <p className={`text-sm font-bold ${b.cls}`}>{fmt(b.val)}</p>
+        {viewer === 'eddy' && (
+          <div className="w-1/4 card p-2.5">
+            <p className="text-[11px] text-slate-500 mb-1.5 font-semibold">💰 잔금 현황</p>
+            <div className="space-y-1">
+              {BALANCE_ITEMS.map(([k, l]) => (
+                <div key={k} className="flex items-center justify-between gap-1">
+                  <span className="text-[11px] text-slate-500 flex-shrink-0">{l}</span>
+                  <input inputMode="numeric" placeholder="0"
+                    value={balances[k] ? balances[k].toLocaleString() : ''}
+                    onChange={e => setBalance(k, parseInt(e.target.value.replace(/[^0-9-]/g, '') || '0', 10))}
+                    className="w-[72px] text-right text-[11px] border border-slate-100 rounded px-1 py-0.5 focus:outline-none focus:border-blue-300" />
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
+        )}
       </div>
 
       {/* Calendar grid */}
@@ -546,51 +597,88 @@ export default function ExpensesPage() {
               </button>
             ))}
           </div>
-          {/* 순이익 추이 + 3개월 이동평균 */}
-          {monthSeries.length > 1 && (
-            <div className="card p-4">
-              <h3 className="font-semibold text-slate-800 mb-1 text-sm">📈 순이익 추이 <span className="text-[11px] text-slate-400 font-normal">(매출−병원경비, 최근 12개월)</span></h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <ComposedChart data={monthSeries} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
-                  <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                  <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `${Math.round(v / 10000)}만`} />
-                  <Tooltip formatter={(v, n) => [`${Number(v).toLocaleString()}원`, n === 'profit' ? '순이익' : n === 'ma3' ? '3개월 평균' : n]} />
-                  <Bar dataKey="profit" radius={[3, 3, 0, 0]}>
-                    {monthSeries.map((m, i) => <Cell key={i} fill={m.profit >= 0 ? '#34D399' : '#F87171'} />)}
-                  </Bar>
-                  <Line type="monotone" dataKey="ma3" stroke="#6366F1" strokeWidth={2} dot={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
-              <p className="text-[10px] text-slate-400 mt-1">막대=월 순이익, 보라선=3개월 이동평균 · 매출 입력한 달만 정확합니다</p>
-            </div>
-          )}
+          {statPeriod === 'month' ? (
+            <>
+              {/* 지출 분석 (병원 경비) */}
+              {viewer === 'eddy' && (
+                <div className="card p-4 overflow-x-auto">
+                  <h3 className="font-semibold text-slate-800 mb-1 text-sm">💉 지출 분석 (병원 경비) <span className="text-[11px] text-slate-400 font-normal">{format(currentDate, 'yyyy년 M월')}</span></h3>
+                  <p className="text-[10px] text-slate-400 mb-2">증가=빨강, 감소=초록 · 전월/전년동월/최근6개월평균 대비</p>
+                  {expenseAnalysis.length === 0 || expenseAnalysis[0].cur === 0 ? (
+                    <p className="text-xs text-slate-400 py-3 text-center">이 달 병원 경비 내역이 없어요</p>
+                  ) : (
+                    <table className="w-full text-xs whitespace-nowrap">
+                      <thead><tr className="text-slate-400 border-b border-slate-100">
+                        <th className="text-left py-1.5 font-medium">항목</th>
+                        <th className="text-right px-2 font-medium">금액</th>
+                        <th className="text-right px-2 font-medium">전월</th>
+                        <th className="text-right px-2 font-medium">전년동월</th>
+                        <th className="text-right px-2 font-medium">6개월평균</th>
+                      </tr></thead>
+                      <tbody>
+                        {expenseAnalysis.map(r => {
+                          const cell = (d: number | null) => d == null ? <span className="text-slate-300">–</span>
+                            : <span className={d > 0 ? 'text-red-500' : d < 0 ? 'text-green-500' : 'text-slate-400'}>{d > 0 ? '▲' : d < 0 ? '▼' : ''}{Math.abs(d)}%</span>
+                          const isTotal = r.name === '병원 경비 전체'
+                          return (
+                            <tr key={r.name} className={`border-b border-slate-50 ${isTotal ? 'font-semibold' : ''}`}>
+                              <td className="py-1.5 text-slate-700">{r.name}</td>
+                              <td className="text-right px-2 text-slate-700">{fmt(r.cur)}</td>
+                              <td className="text-right px-2">{cell(r.dPrev)}</td>
+                              <td className="text-right px-2">{cell(r.dYear)}</td>
+                              <td className="text-right px-2">{cell(r.dAvg6)}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
 
-          {/* 손익분기 매출 */}
-          <div className="card p-4">
-            <h3 className="font-semibold text-slate-800 mb-1 text-sm">⚖️ 손익분기 매출</h3>
-            <p className="text-[11px] text-slate-400 mb-2">이 금액 이상 벌어야 병원 경비를 넘어 흑자입니다 (최근 달 병원 경비 기준)</p>
-            <p className="text-xl font-bold text-slate-800">{fmt(breakEven)}</p>
-          </div>
-
-          {/* 기간별 개요 (카드형) */}
-          <div>
-            <h3 className="font-semibold text-slate-800 mb-2 text-sm">{statPeriod === 'year' ? '연도별' : '월별'} 개요</h3>
-            {overview.length === 0 ? (
-              <p className="text-sm text-slate-400 py-4 text-center card">데이터가 없어요</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {overview.map(o => (
-                  <div key={o.key} className="card p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold text-slate-800">{periodLabel(o.key)}</span>
-                      <span className="text-right">
-                        <span className="block text-[10px] text-slate-400">순이익 (매출−병원경비)</span>
-                        <span className={`text-sm font-bold ${o.revenue - o.hospital >= 0 ? 'text-green-600' : 'text-red-500'}`}>{o.revenue - o.hospital >= 0 ? '+' : ''}{fmt(o.revenue - o.hospital)}</span>
-                      </span>
+              {/* 월별 개요 (연도별 묶음) */}
+              <div>
+                <h3 className="font-semibold text-slate-800 mb-2 text-sm">월별 개요 <span className="text-[11px] text-slate-400 font-normal">(순수익 = 수입 − 병원경비)</span></h3>
+                {overview.length === 0 ? <p className="text-sm text-slate-400 py-4 text-center card">데이터가 없어요</p> : (
+                  Object.entries(overview.reduce((acc, o) => { const y = o.key.slice(0, 4); (acc[y] = acc[y] || []).push(o); return acc }, {} as Record<string, Agg[]>))
+                    .sort((a, b) => a[0] < b[0] ? 1 : -1).map(([year, months]) => (
+                      <div key={year} className="mb-3">
+                        <h4 className="text-xs font-semibold text-slate-500 mb-1.5">{year}년</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {months.map(o => (
+                            <div key={o.key} className="card p-2.5">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-semibold text-slate-700">{parseInt(o.key.slice(5, 7))}월</span>
+                                <span className={`text-xs font-bold ${o.revenue - o.hospital >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(o.revenue - o.hospital)}</span>
+                              </div>
+                              <div className="space-y-0.5 text-[10px]">
+                                <div className="flex justify-between"><span className="text-slate-400">수입/지출</span><span className="text-slate-600">{won(o.income)}/{won(o.expense)}</span></div>
+                                <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(o.hospital)}</span></div>
+                                <div className="flex justify-between"><span className="text-teal-500">가계/개인</span><span className="text-slate-600">{won(o.household)}/{won(o.personal)}</span></div>
+                                <div className="flex justify-between"><span className="text-indigo-500">저축</span><span className="text-slate-600">{won(o.saving)}</span></div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                )}
+                <p className="text-[10px] text-slate-400">단위 만원 · 순수익 강조 표시</p>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* 연도별 개요(최근 3년) + 순수익 그래프 */}
+              <div className="flex flex-wrap gap-2 items-stretch">
+                {overview.slice(0, 3).map(o => (
+                  <div key={o.key} className="card p-2.5 w-[calc(16.66%-0.5rem)] min-w-[110px]">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-slate-700">{o.key}년</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                      <div className="flex justify-between"><span className="text-slate-400">매출</span><span className="text-green-600 font-medium">{won(o.revenue)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-400">지출</span><span className="text-red-500 font-medium">{won(o.expense)}</span></div>
+                    <p className={`text-sm font-bold mb-1 ${o.revenue - o.hospital >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(o.revenue - o.hospital)}</p>
+                    <div className="space-y-0.5 text-[10px]">
+                      <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(o.revenue)}</span></div>
+                      <div className="flex justify-between"><span className="text-red-400">지출</span><span className="text-slate-600">{won(o.expense)}</span></div>
                       <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(o.hospital)}</span></div>
                       <div className="flex justify-between"><span className="text-teal-500">가계</span><span className="text-slate-600">{won(o.household)}</span></div>
                       <div className="flex justify-between"><span className="text-amber-500">개인</span><span className="text-slate-600">{won(o.personal)}</span></div>
@@ -598,40 +686,43 @@ export default function ExpensesPage() {
                     </div>
                   </div>
                 ))}
+                <div className="card p-3 flex-1 min-w-[280px]">
+                  <h3 className="font-semibold text-slate-800 mb-1 text-xs">📈 순수익 추이 (최근 3년, 매출−병원경비)</h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={profitChartData} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
+                      <XAxis dataKey="month" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `${Math.round(v / 10000)}만`} />
+                      <Tooltip formatter={(v, n) => [`${Number(v).toLocaleString()}원`, `${n}년`]} />
+                      <Legend formatter={v => `${v}년`} wrapperStyle={{ fontSize: 11 }} />
+                      {recentYears.map(y => <Line key={y} type="monotone" dataKey={y} stroke={YEAR_COLORS[y]} strokeWidth={2} dot={{ r: 2 }} />)}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            )}
-            <p className="text-[10px] text-slate-400 mt-1">금액 단위 만원 · 순이익 = 매출 − 병원 경비</p>
-          </div>
-
-          {/* 분류 분석 (최신 기간 vs 직전 기간, 증감률) */}
-          {curKey && [
-            { title: '🏥 병원 경비 분류별', rows: anaHospital, rev: true, invert: false },
-          ].map(sec => sec.rows.length > 0 && (
-            <div key={sec.title} className="card p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-800 text-sm">{sec.title}</h3>
-                <span className="text-[11px] text-slate-400">{periodLabel(curKey)}{prevKey ? ` vs ${periodLabel(prevKey)}` : ''}</span>
-              </div>
-              <div className="space-y-1.5">
-                {sec.rows.map(r => {
-                  const up = r.delta != null && r.delta > 0
-                  const good = sec.invert ? up : !up // 지출↓=좋음, 저축↑=좋음
-                  return (
-                    <div key={r.name} className="flex items-center gap-2 text-xs">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
-                      <span className="text-slate-600 flex-1 truncate">{r.name}</span>
-                      {sec.rev && r.revPct != null && <span className="text-slate-400 w-16 text-right">매출 {r.revPct}%</span>}
-                      <span className="text-slate-700 font-medium w-20 text-right">{fmt(r.cur)}</span>
-                      <span className={`w-16 text-right ${r.delta == null ? 'text-slate-300' : good ? 'text-green-500' : 'text-red-500'}`}>
-                        {r.delta == null ? '신규' : `${up ? '▲' : r.delta < 0 ? '▼' : '–'}${Math.abs(r.delta)}%`}
-                      </span>
+              {/* 이전 연도 */}
+              {olderYears.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {overview.slice(3).map(o => (
+                    <div key={o.key} className="card p-2.5">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-slate-700">{o.key}년</span>
+                        <span className={`text-xs font-bold ${o.revenue - o.hospital >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(o.revenue - o.hospital)}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-2 text-[10px]">
+                        <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(o.revenue)}</span></div>
+                        <div className="flex justify-between"><span className="text-red-400">지출</span><span className="text-slate-600">{won(o.expense)}</span></div>
+                        <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(o.hospital)}</span></div>
+                        <div className="flex justify-between"><span className="text-teal-500">가계</span><span className="text-slate-600">{won(o.household)}</span></div>
+                        <div className="flex justify-between"><span className="text-amber-500">개인</span><span className="text-slate-600">{won(o.personal)}</span></div>
+                        <div className="flex justify-between"><span className="text-indigo-500">저축</span><span className="text-slate-600">{won(o.saving)}</span></div>
+                      </div>
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-          <p className="text-[10px] text-slate-400 px-1">▲/▼는 직전 {statPeriod === 'year' ? '연도' : '달'} 대비 증감률. 병원 경비는 매출 대비 비율도 함께 표시(매출 입력 시). 치과 권장: 인건비 25~30%, 기공료·재료비 8~12%, 임대+관리 7~9%.</p>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] text-slate-400">단위 만원 · 선 그래프는 연도별 월 순수익(매출−병원경비)</p>
+            </>
+          )}
         </div>
       )}
 
