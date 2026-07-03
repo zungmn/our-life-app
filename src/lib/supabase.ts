@@ -136,6 +136,11 @@ export type ArchiveItem = {
   category?: string
   file_url?: string
   note?: string
+  item_date?: string
+  photos?: string[]
+  purpose?: string
+  distance?: number
+  record_time?: string
   created_at: string
 }
 

@@ -120,3 +120,13 @@ CREATE TABLE IF NOT EXISTS wedding_gifts (
 );
 ALTER TABLE wedding_gifts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public access" ON wedding_gifts FOR ALL USING (true) WITH CHECK (true);
+
+-- 자료실 확장 (여러 장 사진, 용도, 마라톤 거리/기록)
+ALTER TABLE archive_items ADD COLUMN IF NOT EXISTS photos text[] DEFAULT '{}';
+ALTER TABLE archive_items ADD COLUMN IF NOT EXISTS purpose text;
+ALTER TABLE archive_items ADD COLUMN IF NOT EXISTS distance numeric;
+ALTER TABLE archive_items ADD COLUMN IF NOT EXISTS record_time text;
+
+-- 기존 분류 → 새 5개 분류 자동 이동
+UPDATE archive_items SET category = '사진기록' WHERE category IN ('사진', '건강', '재정', '기타') OR category IS NULL;
+UPDATE archive_items SET category = '치과 면허증' WHERE category = '기록증/수료증';
