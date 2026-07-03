@@ -62,7 +62,13 @@ export default function ExpensesPage() {
   const [balances, setBalances] = useState<Record<string, number>>({})
   useEffect(() => { try { setBalances(JSON.parse(localStorage.getItem('budget_balances') || '{}')) } catch { setBalances({}) } }, [])
   const setBalance = (k: string, v: number) => { const nb = { ...balances, [k]: v }; setBalances(nb); localStorage.setItem('budget_balances', JSON.stringify(nb)) }
-  const BALANCE_ITEMS: [string, string][] = [['exposed', '노출 현금'], ['hidden', '비노출 현금'], ['safe', '금고'], ['voucher', '상품권'], ['pharma', '제약']]
+  const adjustBalance = (k: string, label: string) => {
+    const s = prompt(`${label} 증감액 입력 (더하기 예: 50000, 빼기 예: -50000)`)
+    if (s == null) return
+    const d = parseInt(s.replace(/[^0-9-]/g, '') || '0', 10)
+    if (d) setBalance(k, (balances[k] || 0) + d)
+  }
+  const BALANCE_ITEMS: [string, string, string][] = [['exposed', '노출 현금', '원'], ['hidden', '비노출 현금', '원'], ['safe', '금고', '원'], ['voucher', '상품권', '원'], ['pharma', '제약', '원'], ['gold', '골드바', '돈']]
   const [monthRevenue, setMonthRevenue] = useState('')
   const [form, setForm] = useState({
     date: format(new Date(), 'yyyy-MM-dd'), type: 'expense' as 'income' | 'expense',
@@ -484,50 +490,47 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* 요약(좌 3/4) + 잔금 현황(우 1/4, Eddy) */}
-      <div className="flex gap-3 mb-4">
-        <div className={viewer === 'eddy' ? 'w-3/4' : 'w-full'}>
-          <div className="grid grid-cols-2 gap-2 mb-2">
-            <div className="card p-3">
-              <div className="flex items-center justify-between mb-0.5">
-                <p className="text-xs text-slate-400">이번 달 수입</p>
-                {viewer === 'eddy' && (
-                  <button onClick={async () => {
-                    try {
-                      const res = await fetch(`/api/clinic-revenue?month=${format(currentDate, 'yyyy-MM')}`)
-                      const j = await res.json()
-                      if (j.error) { alert('불러오기 실패: ' + j.error); return }
-                      saveRevenue(String(j.total || 0))
-                      if (Array.isArray(j.days)) saveRevenueDays(j.days)
-                      alert(`이번 달 매출 ${Number(j.total || 0).toLocaleString()}원을 불러왔습니다.`)
-                    } catch { alert('연결 실패') }
-                  }} className="text-[10px] px-2 py-0.5 rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors">OS 불러오기</button>
-                )}
-              </div>
-              <p className="text-base font-bold text-green-500">{fmt(displayIncome)}</p>
+      {/* 요약(좌) + 잔금 현황(우, Eddy) */}
+      <div className="flex gap-3 mb-4 items-stretch">
+        <div className="flex-1 grid grid-cols-3 gap-2">
+          {/* 이번 달 수입 */}
+          <div className="card p-3 flex flex-col justify-center">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs text-slate-400">이번 달 수입</p>
+              {viewer === 'eddy' && (
+                <button onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/clinic-revenue?month=${format(currentDate, 'yyyy-MM')}`)
+                    const j = await res.json()
+                    if (j.error) { alert('불러오기 실패: ' + j.error); return }
+                    saveRevenue(String(j.total || 0))
+                    if (Array.isArray(j.days)) saveRevenueDays(j.days)
+                    alert(`이번 달 매출 ${Number(j.total || 0).toLocaleString()}원을 불러왔습니다.`)
+                  } catch { alert('연결 실패') }
+                }} className="text-[10px] px-2 py-0.5 rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors">OS 불러오기</button>
+              )}
             </div>
-            <div className="card p-3"><p className="text-xs text-slate-400 mb-0.5">이번 달 지출</p><p className="text-base font-bold text-red-500">{fmt(totalExpense)}</p></div>
+            <p className="text-base font-bold text-green-500">{fmt(displayIncome)}</p>
           </div>
-          <div className={`grid ${bucketCards.length === 4 ? 'grid-cols-4' : 'grid-cols-3'} gap-2`}>
-            {bucketCards.map(b => (
-              <div key={b.label} className="card p-2.5">
-                <p className="text-[11px] text-slate-400 mb-0.5">{b.label}</p>
-                <p className={`text-sm font-bold ${b.cls}`}>{fmt(b.val)}</p>
-              </div>
-            ))}
-          </div>
+          <div className="card p-3 flex flex-col justify-center"><p className="text-xs text-slate-400 mb-1">이번 달 지출</p><p className="text-base font-bold text-red-500">{fmt(totalExpense)}</p></div>
+          <div className="card p-3 flex flex-col justify-center"><p className="text-xs text-slate-400 mb-1">저축</p><p className="text-base font-bold text-indigo-600">{fmt(totalSaving)}</p></div>
+          {(['hospital', 'household', 'personal'] as BudgetScope[]).filter(s => viewer === 'eddy' || s !== 'hospital').map(s => (
+            <div key={s} className="card p-3 flex flex-col justify-center">
+              <p className="text-xs text-slate-400 mb-1">{SCOPE_LABEL[s]}</p>
+              <p className={`text-base font-bold ${s === 'hospital' ? 'text-rose-500' : s === 'household' ? 'text-teal-600' : 'text-amber-600'}`}>{fmt(scopeTotal(s))}</p>
+            </div>
+          ))}
         </div>
         {viewer === 'eddy' && (
-          <div className="w-1/4 card p-2.5">
+          <div className="card p-2.5 w-[220px] flex-shrink-0">
             <p className="text-[11px] text-slate-500 mb-1.5 font-semibold">💰 잔금 현황</p>
             <div className="space-y-1">
-              {BALANCE_ITEMS.map(([k, l]) => (
-                <div key={k} className="flex items-center justify-between gap-1">
-                  <span className="text-[11px] text-slate-500 flex-shrink-0">{l}</span>
-                  <input inputMode="numeric" placeholder="0"
-                    value={balances[k] ? balances[k].toLocaleString() : ''}
-                    onChange={e => setBalance(k, parseInt(e.target.value.replace(/[^0-9-]/g, '') || '0', 10))}
-                    className="w-[72px] text-right text-[11px] border border-slate-100 rounded px-1 py-0.5 focus:outline-none focus:border-blue-300" />
+              {BALANCE_ITEMS.map(([k, l, unit]) => (
+                <div key={k} className="flex items-center gap-1">
+                  <span className="text-[11px] text-slate-500 w-14 flex-shrink-0">{l}</span>
+                  <span className="text-[11px] text-slate-700 font-medium flex-1 text-right tabular-nums">{(balances[k] || 0).toLocaleString()}</span>
+                  <span className="text-[10px] text-slate-400 w-4">{unit}</span>
+                  <button onClick={() => adjustBalance(k, l)} className="w-4 h-4 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-slate-200 text-[11px] flex-shrink-0">+</button>
                 </div>
               ))}
             </div>
