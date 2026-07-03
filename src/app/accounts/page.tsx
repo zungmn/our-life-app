@@ -99,7 +99,7 @@ export default function AccountsPage({ embedded = false }: { embedded?: boolean 
           }} className="bg-slate-700 text-white text-sm px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors">노션 데이터 불러오기</button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
           {filtered.map(a => (
             <div key={a.id} onDoubleClick={() => openEdit(a)} className="card p-2.5 group cursor-pointer">
               <div className="flex items-center gap-1.5 mb-0.5">
@@ -121,7 +121,7 @@ export default function AccountsPage({ embedded = false }: { embedded?: boolean 
               {a.note && <p className="text-[11px] text-slate-400 truncate mt-0.5">📝 {a.note}</p>}
             </div>
           ))}
-          {filtered.length === 0 && <p className="col-span-2 text-sm text-slate-400 text-center py-8">검색 결과가 없어요</p>}
+          {filtered.length === 0 && <p className="col-span-full text-sm text-slate-400 text-center py-8">검색 결과가 없어요</p>}
         </div>
       )}
 
