@@ -121,14 +121,26 @@ export default function ExpensesPage() {
   }, [currentDate, viewer])
   useEffect(() => { if (tab === 'stats' && statPeriod === 'year') fetchYear() }, [tab, statPeriod, fetchYear])
 
-  // 통계 전체 기간 데이터 (월별/연별 개요)
+  // 통계 전체 기간 데이터 (월별/연별 개요) — Supabase 1000행 제한 대비 페이지네이션
   const fetchAll = useCallback(async () => {
     const v = (localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy'
-    const tx = await supabase.from('transactions').select('*').or(`owner.eq.${v},owner.is.null`)
-    let items: CalItem[] = (tx.data || []).map(txToItem)
+    const txRows: Transaction[] = []
+    for (let from = 0; ; from += 1000) {
+      const { data } = await supabase.from('transactions').select('*').or(`owner.eq.${v},owner.is.null`).range(from, from + 999)
+      if (!data || data.length === 0) break
+      txRows.push(...data)
+      if (data.length < 1000) break
+    }
+    let items: CalItem[] = txRows.map(txToItem)
     if (v === 'eddy') {
-      const cf = await supabase.from('clinic_finance').select('*')
-      items = [...items, ...(cf.data || []).map(cfToItem)]
+      const cfRows: ClinicFinance[] = []
+      for (let from = 0; ; from += 1000) {
+        const { data } = await supabase.from('clinic_finance').select('*').range(from, from + 999)
+        if (!data || data.length === 0) break
+        cfRows.push(...data)
+        if (data.length < 1000) break
+      }
+      items = [...items, ...cfRows.map(cfToItem)]
     }
     setAllItems(items)
   }, [viewer])
@@ -308,7 +320,7 @@ export default function ExpensesPage() {
     if (viewer === 'eddy' && typeof window !== 'undefined') {
       for (let i = 0; i < localStorage.length; i++) {
         const sk = localStorage.key(i)
-        if (sk?.startsWith('clinic_revenue_')) { const k = periodKey(sk.replace('clinic_revenue_', '') + '-01'); if (!map[k]) map[k] = emptyAgg(k) }
+        if (sk?.startsWith('clinic_revenue_') && !sk.startsWith('clinic_revenue_days_')) { const k = periodKey(sk.replace('clinic_revenue_', '') + '-01'); if (!map[k]) map[k] = emptyAgg(k) }
       }
     }
     const keys = Object.keys(map)
@@ -401,7 +413,7 @@ export default function ExpensesPage() {
 
   // ===== 3년 순수익 라인차트 (x=1~12월, 연도별 선) =====
   const profitYears = Array.from(new Set(Object.keys(hospByMonth).map(k => k.slice(0, 4)).concat(
-    typeof window !== 'undefined' && viewer === 'eddy' ? Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) || '').filter(s => s.startsWith('clinic_revenue_')).map(s => s.replace('clinic_revenue_', '').slice(0, 4)) : []
+    typeof window !== 'undefined' && viewer === 'eddy' ? Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) || '').filter(s => s.startsWith('clinic_revenue_') && !s.startsWith('clinic_revenue_days_')).map(s => s.replace('clinic_revenue_', '').slice(0, 4)) : []
   ))).sort()
   const recentYears = profitYears.slice(-3)
   const olderYears = profitYears.slice(0, -3)
@@ -423,7 +435,7 @@ export default function ExpensesPage() {
   for (const it of allItems) { const k = it.date.slice(0, 7); const o = monthMap[k] = monthMap[k] || emptyAgg(k); if (it.type === 'income') o.income += it.amount; else if (it.is_saving) o.saving += it.amount; else { o.expense += it.amount; o[it.scope] += it.amount } }
   const revMonth = (k: string) => viewer === 'eddy' && typeof window !== 'undefined' ? toNum(localStorage.getItem(`clinic_revenue_${k}`) || '0') : 0
   const monthAgg = (k: string): Agg => { const o = monthMap[k] || emptyAgg(k); const rev = revMonth(k); return { ...o, revenue: rev, income: o.income + rev } }
-  const dataYears = Array.from(new Set([...Object.keys(monthMap).map(k => k.slice(0, 4)), ...recentYears, String(new Date().getFullYear())])).map(Number).sort((a, b) => b - a)
+  const dataYears = Array.from(new Set([...Object.keys(monthMap).map(k => k.slice(0, 4)), ...recentYears, String(new Date().getFullYear())])).map(Number).filter(y => !isNaN(y)).sort((a, b) => b - a)
   const monthCards = (() => {
     const now = new Date()
     const maxM = statYear === now.getFullYear() ? now.getMonth() + 1 : 12
@@ -458,7 +470,7 @@ export default function ExpensesPage() {
   }
   // 증감률 배지 (상승 빨강, 하락 파랑)
   const deltaBadge = (d: number | null, label: string) => (
-    <span className="inline-flex items-center gap-0.5 text-[10px]">
+    <span className="inline-flex items-center gap-0.5 text-[11px]">
       <span className="text-slate-400">{label}</span>
       {d == null ? <span className="text-slate-300">–</span> : <span className={d > 0 ? 'text-red-500' : d < 0 ? 'text-blue-500' : 'text-slate-400'}>{d > 0 ? '▲' : d < 0 ? '▼' : ''}{Math.abs(d)}%</span>}
     </span>
@@ -583,7 +595,7 @@ export default function ExpensesPage() {
           ))}
         </div>
         {viewer === 'eddy' && (
-          <div className="card p-2.5 w-[150px] flex-shrink-0">
+          <div className="card p-2.5 w-[200px] flex-shrink-0">
             <p className="text-[11px] text-slate-500 mb-1.5 font-semibold">💰 잔금 현황</p>
             <div className="space-y-1">
               {BALANCE_ITEMS.map(([k, l, unit]) => (
@@ -672,16 +684,16 @@ export default function ExpensesPage() {
                   const active = analysisMonth === k
                   return (
                     <button key={k} onClick={() => setAnalysisMonth(active ? null : k)}
-                      className={`card p-2.5 text-left transition-shadow hover:shadow-md ${active ? 'ring-2 ring-indigo-300' : ''}`}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-slate-700">{parseInt(k.slice(5, 7))}월</span>
-                        <span className={`text-xs font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
+                      className={`card p-3.5 text-left transition-shadow hover:shadow-md min-h-[112px] flex flex-col ${active ? 'ring-2 ring-indigo-300' : ''}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-lg font-bold text-slate-800">{parseInt(k.slice(5, 7))}월</span>
+                        <span className={`text-sm font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-2 text-[10px] mb-1">
-                        <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(a.revenue)}</span></div>
-                        <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(a.hospital)}</span></div>
+                      <div className="grid grid-cols-2 gap-x-2 text-xs mb-2">
+                        <div className="flex justify-between"><span className="text-green-500 font-medium">수입</span><span className="text-slate-600">{won(a.revenue)}</span></div>
+                        <div className="flex justify-between"><span className="text-rose-400 font-medium">경비</span><span className="text-slate-600">{won(a.hospital)}</span></div>
                       </div>
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-slate-50 pt-1">
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-slate-50 pt-1.5 mt-auto text-[11px]">
                         {deltaBadge(d.dPrev, '전월')}{deltaBadge(d.dYear, '작년')}{deltaBadge(d.dAvg6, '6M')}
                       </div>
                     </button>
