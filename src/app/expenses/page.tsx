@@ -64,11 +64,12 @@ export default function ExpensesPage() {
   const [balances, setBalances] = useState<Record<string, number>>({})
   useEffect(() => { try { setBalances(JSON.parse(localStorage.getItem('budget_balances') || '{}')) } catch { setBalances({}) } }, [])
   const setBalance = (k: string, v: number) => { const nb = { ...balances, [k]: v }; setBalances(nb); localStorage.setItem('budget_balances', JSON.stringify(nb)) }
-  const adjustBalance = (k: string, label: string) => {
-    const s = prompt(`${label} 증감액 입력 (더하기 예: 50000, 빼기 예: -50000)`)
+  const adjustBalance = (k: string, label: string, unit: string) => {
+    const ex = unit === '돈' ? '0.7' : '50000'
+    const s = prompt(`${label} 증감액 입력 (더하기 예: ${ex}, 빼기 예: -${ex})`)
     if (s == null) return
-    const d = parseInt(s.replace(/[^0-9-]/g, '') || '0', 10)
-    if (d) setBalance(k, (balances[k] || 0) + d)
+    const d = parseFloat(s.replace(/[^0-9.\-]/g, '') || '0')
+    if (d) setBalance(k, Math.round(((balances[k] || 0) + d) * 100) / 100)
   }
   const BALANCE_ITEMS: [string, string, string][] = [['exposed', '노출 현금', '원'], ['hidden', '비노출 현금', '원'], ['safe', '금고', '원'], ['voucher', '상품권', '원'], ['pharma', '제약', '원'], ['gold', '골드바', '돈']]
   const [monthRevenue, setMonthRevenue] = useState('')
@@ -582,15 +583,15 @@ export default function ExpensesPage() {
           ))}
         </div>
         {viewer === 'eddy' && (
-          <div className="card p-2.5 w-[220px] flex-shrink-0">
+          <div className="card p-2.5 w-[150px] flex-shrink-0">
             <p className="text-[11px] text-slate-500 mb-1.5 font-semibold">💰 잔금 현황</p>
             <div className="space-y-1">
               {BALANCE_ITEMS.map(([k, l, unit]) => (
-                <div key={k} className="flex items-center gap-1">
-                  <span className="text-[11px] text-slate-500 w-14 flex-shrink-0">{l}</span>
+                <div key={k} className="flex items-center gap-0.5">
+                  <span className="text-[10px] text-slate-500 flex-shrink-0">{l}</span>
                   <span className="text-[11px] text-slate-700 font-medium flex-1 text-right tabular-nums">{(balances[k] || 0).toLocaleString()}</span>
-                  <span className="text-[10px] text-slate-400 w-4">{unit}</span>
-                  <button onClick={() => adjustBalance(k, l)} className="w-4 h-4 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-slate-200 text-[11px] flex-shrink-0">+</button>
+                  <span className="text-[9px] text-slate-400">{unit}</span>
+                  <button onClick={() => adjustBalance(k, l, unit)} className="w-4 h-4 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-slate-200 text-[11px] flex-shrink-0">+</button>
                 </div>
               ))}
             </div>
