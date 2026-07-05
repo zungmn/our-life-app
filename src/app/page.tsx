@@ -7,6 +7,7 @@ import { format, startOfMonth, endOfMonth, getDay, isToday, addMonths, subMonths
 import { ko } from 'date-fns/locale'
 import { Plus, X, Trash2, Check, ChevronLeft, ChevronRight, Paperclip, Download } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import DatePickerInput from '@/components/DatePickerInput'
 import { holidaysForYears } from '@/lib/holidays'
 
@@ -42,6 +43,7 @@ function formatKoreanTime(time?: string) {
 }
 
 export default function Home() {
+  const router = useRouter()
   const [viewer, setViewer] = useState<'eddy' | 'judy'>('eddy')
   const [todos, setTodos] = useState<Todo[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -387,7 +389,7 @@ export default function Home() {
             {visibleProjects.map(project => {
               const dl = project.deadline ? daysLeft(project.deadline) : null
               return (
-                <div key={project.id} onDoubleClick={() => openEditProject(project)}
+                <div key={project.id} onDoubleClick={() => router.push('/projects')}
                   className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg group cursor-pointer">
                   <div className="w-3 h-3 rounded-full bg-blue-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">

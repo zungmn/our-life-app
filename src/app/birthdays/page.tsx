@@ -25,14 +25,31 @@ const MONTHS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', 
 const THIS_MONTH = new Date().getMonth() + 1
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 
-function nextBirthday(birthday: string) {
-  const [m, d] = birthday.split('-').map(Number)
+// 해당 연도의 양력 'MM-DD' (음력이면 변환)
+function solarMMDDForYear(bd: Birthday, year: number): string {
+  if (bd.lunar_birthday) {
+    const [lm, ld] = bd.lunar_birthday.split('-')
+    const s = lunarToSolarDate(year, lm, ld)
+    if (s) return s.slice(5) // 'MM-DD'
+  }
+  return bd.birthday
+}
+// 다음 생일까지 D-day (음력 지원)
+function nextBirthdayOf(bd: Birthday) {
   const now = new Date()
-  const thisYear = now.getFullYear()
-  const bd = new Date(thisYear, m - 1, d)
-  if (bd < now) bd.setFullYear(thisYear + 1)
-  const diff = Math.ceil((bd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-  return { days: diff, month: m, day: d }
+  const y = now.getFullYear()
+  for (const yy of [y, y + 1]) {
+    const mmdd = solarMMDDForYear(bd, yy)
+    const [m, d] = mmdd.split('-').map(Number)
+    const date = new Date(yy, m - 1, d)
+    if (date >= new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+      const diff = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      return { days: Math.max(0, diff), month: m, day: d }
+    }
+  }
+  const mmdd = solarMMDDForYear(bd, y)
+  const [m, d] = mmdd.split('-').map(Number)
+  return { days: 0, month: m, day: d }
 }
 
 export default function BirthdaysPage({ embedded = false }: { embedded?: boolean } = {}) {
@@ -41,7 +58,7 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
   const [selected, setSelected] = useState<Birthday | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [showGiftModal, setShowGiftModal] = useState(false)
-  const [form, setForm] = useState({ name: '', birthday: '', lunar_birthday: '', relation: '', show_in_calendar: false })
+  const [form, setForm] = useState({ name: '', birthday: '', is_lunar: false, relation: '', show_in_calendar: false })
   const [editItem, setEditItem] = useState<Birthday | null>(null)
   const [editGift, setEditGift] = useState<BirthdayGift | null>(null)
   const [giftForm, setGiftForm] = useState({ year: new Date().getFullYear().toString(), direction: 'received' as 'received' | 'given', gift: '' })
@@ -68,10 +85,13 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
   const openEdit = (bd: Birthday) => {
     setSelected(null)
     setEditItem(bd)
+    // 음력이면 lunar_birthday(음력 MM-DD)를 입력칸에, 아니면 birthday(양력)
+    const isLunar = !!bd.lunar_birthday
+    const mmdd = isLunar ? bd.lunar_birthday! : bd.birthday
     setForm({
       name: bd.name,
-      birthday: `2000-${bd.birthday}`,
-      lunar_birthday: bd.lunar_birthday || '',
+      birthday: `2000-${mmdd}`,
+      is_lunar: isLunar,
       relation: bd.relation || '',
       show_in_calendar: bd.show_in_calendar || false,
     })
@@ -84,28 +104,29 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
     const mm = parts.length >= 3 ? parts[1] : parts[0]
     const dd = parts.length >= 3 ? parts[2] : parts[1]
     if (!mm || !dd) return
+    const lunar = form.is_lunar ? `${mm}-${dd}` : null
     const payload = {
       name: form.name,
       birthday: `${mm}-${dd}`,
       relation: form.relation || null,
-      lunar_birthday: form.lunar_birthday || null,
+      lunar_birthday: lunar,
       show_in_calendar: form.show_in_calendar,
     }
     if (editItem) {
       await supabase.from('birthdays').update(payload).eq('id', editItem.id)
       await supabase.from('events').delete().eq('title', `🎂 ${form.name}`).eq('person', 'both')
       if (form.show_in_calendar) {
-        const evs = buildBirthdayEvents(form.name, `${mm}-${dd}`, form.lunar_birthday || null, form.relation || null)
+        const evs = buildBirthdayEvents(form.name, `${mm}-${dd}`, lunar, form.relation || null)
         for (const ev of evs) await supabase.from('events').insert(ev)
       }
     } else {
       const { data: inserted } = await supabase.from('birthdays').insert(payload).select().single()
       if (inserted && form.show_in_calendar) {
-        const evs = buildBirthdayEvents(form.name, `${mm}-${dd}`, form.lunar_birthday || null, form.relation || null)
+        const evs = buildBirthdayEvents(form.name, `${mm}-${dd}`, lunar, form.relation || null)
         for (const ev of evs) await supabase.from('events').insert(ev)
       }
     }
-    setForm({ name: '', birthday: '', lunar_birthday: '', relation: '', show_in_calendar: false })
+    setForm({ name: '', birthday: '', is_lunar: false, relation: '', show_in_calendar: false })
     setEditItem(null)
     setShowModal(false)
     fetchAll()
@@ -195,7 +216,7 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
     fetchAll()
   }
 
-  const sortedByUpcoming = [...birthdays].sort((a, b) => nextBirthday(a.birthday).days - nextBirthday(b.birthday).days)
+  const sortedByUpcoming = [...birthdays].sort((a, b) => nextBirthdayOf(a).days - nextBirthdayOf(b).days)
   const byMonth = filterMonth > 0
     ? birthdays.filter(b => parseInt(b.birthday.split('-')[0]) === filterMonth)
     : sortedByUpcoming
@@ -209,7 +230,7 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
           {!embedded && <h2 className="text-2xl font-bold text-slate-800">🎂 기념일 및 생일</h2>}
           <p className="text-base font-semibold text-slate-500 mt-0.5">생일·기념일과 받은 선물, 준 선물 기록</p>
         </div>
-        <button onClick={() => { setEditItem(null); setForm({ name: '', birthday: '', lunar_birthday: '', relation: '', show_in_calendar: false }); setShowModal(true) }}
+        <button onClick={() => { setEditItem(null); setForm({ name: '', birthday: '', is_lunar: false, relation: '', show_in_calendar: false }); setShowModal(true) }}
           className="flex items-center gap-1 bg-rose-500 text-white px-4 py-2 rounded-lg text-[0.9rem] hover:bg-rose-600 transition-colors">
           <Plus size={16} /> 추가
         </button>
@@ -258,13 +279,15 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
                 const dd = String(cur.getDate()).padStart(2, '0')
                 const ds = `${cur.getFullYear()}-${mm}-${dd}`
                 const holiday = hol[ds]
-                const bds = birthdays.filter(b => b.birthday === `${mm}-${dd}`)
+                const bds = birthdays.filter(b => solarMMDDForYear(b, cur.getFullYear()) === `${mm}-${dd}`)
                 const dow = cur.getDay()
                 const isLast = i >= (weeks - 1) * 7
+                const today = new Date()
+                const isToday = cur.getFullYear() === today.getFullYear() && cur.getMonth() === today.getMonth() && cur.getDate() === today.getDate()
                 return (
                   <div key={i} className={`min-h-[100px] p-1 border-b border-r border-slate-50 ${isLast ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
                     <div className="flex items-center gap-1 mb-0.5">
-                      <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full ${!inMonth ? (holiday ? 'text-red-300' : 'text-slate-300') : (holiday || dow === 0) ? 'text-red-500' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{cur.getDate()}</div>
+                      <div className={`text-base font-medium w-8 h-8 flex items-center justify-center rounded-full ${isToday ? 'bg-rose-500 text-white' : !inMonth ? (holiday ? 'text-red-300' : 'text-slate-300') : (holiday || dow === 0) ? 'text-red-500' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{cur.getDate()}</div>
                       {holiday && inMonth && <span className="text-[10px] text-red-400 truncate">{holiday}</span>}
                     </div>
                     {bds.map(b => (
@@ -305,7 +328,7 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
       ) : (
         <div className="space-y-2">
           {byMonth.map(bd => {
-            const nb = nextBirthday(bd.birthday)
+            const nb = nextBirthdayOf(bd)
             const [m, d] = bd.birthday.split('-')
             const bdGifts = gifts[bd.id] || []
             return (
@@ -346,11 +369,15 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
                 <div>
                   <h3 className="font-bold text-2xl text-slate-800">{selected.name}</h3>
                   <p className="text-lg text-slate-400">
-                    {selected.birthday.replace('-', '월 ')}일{selected.relation ? ` · ${selected.relation}` : ''}
-                    {selected.lunar_birthday && <span className="ml-1 text-slate-300">(음력 {selected.lunar_birthday.replace('-', '월 ')}일)</span>}
+                    {selected.lunar_birthday ? (
+                      <>음력 {selected.lunar_birthday.replace('-', '월 ')}일 · 올해 양력 {solarMMDDForYear(selected, new Date().getFullYear()).replace('-', '월 ').replace(/^0/, '')}일</>
+                    ) : (
+                      <>{selected.birthday.replace('-', '월 ')}일</>
+                    )}
+                    {selected.relation ? ` · ${selected.relation}` : ''}
                   </p>
-                  <p className={`text-base font-medium mt-1 ${nextBirthday(selected.birthday).days <= 30 ? 'text-rose-500' : 'text-slate-400'}`}>
-                    {nextBirthday(selected.birthday).days === 0 ? '🎂 오늘 생일!' : `D-${nextBirthday(selected.birthday).days}`}
+                  <p className={`text-base font-medium mt-1 ${nextBirthdayOf(selected).days <= 30 ? 'text-rose-500' : 'text-slate-400'}`}>
+                    {nextBirthdayOf(selected).days === 0 ? '🎂 오늘 생일!' : `D-${nextBirthdayOf(selected).days}`}
                   </p>
                 </div>
                 <button onClick={() => setSelected(null)}><X size={28} className="text-slate-400" /></button>
@@ -470,14 +497,22 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
                 placeholder="이름" value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">생일 YYYY-MM-DD (월/일만 저장됩니다)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs text-slate-500">생일 (월/일만 저장) {form.is_lunar && <span className="text-rose-400">· 음력으로 입력</span>}</label>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, is_lunar: !f.is_lunar }))}
+                    className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg transition-colors ${form.is_lunar ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'}`}>
+                    <span className={`w-7 h-4 rounded-full flex items-center px-0.5 transition-colors ${form.is_lunar ? 'bg-rose-400' : 'bg-slate-300'}`}>
+                      <span className={`w-3 h-3 bg-white rounded-full transition-transform ${form.is_lunar ? 'translate-x-3' : ''}`} />
+                    </span>
+                    음력
+                  </button>
+                </div>
                 <DateInput value={form.birthday} onChange={v => setForm(f => ({ ...f, birthday: v }))} className="w-full" />
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 mb-1 block">음력 생일 (선택, MM-DD)</label>
-                <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400"
-                  placeholder="예: 04-15 (음력 4월 15일)" value={form.lunar_birthday}
-                  onChange={e => setForm(f => ({ ...f, lunar_birthday: e.target.value }))} />
+                {form.is_lunar && form.birthday && (() => {
+                  const p = form.birthday.split('-'); const mm = p.length >= 3 ? p[1] : p[0]; const dd = p.length >= 3 ? p[2] : p[1]
+                  const y = new Date().getFullYear(); const s = lunarToSolarDate(y, mm, dd)
+                  return <p className="text-[11px] text-rose-400 mt-1">올해 양력: {s ? `${parseInt(s.slice(5, 7))}월 ${parseInt(s.slice(8, 10))}일` : '-'} (매년 자동 변환)</p>
+                })()}
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">관계 (선택)</label>

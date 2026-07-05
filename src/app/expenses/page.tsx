@@ -470,7 +470,7 @@ export default function ExpensesPage() {
   }
   // 증감률 배지 (상승 빨강, 하락 파랑)
   const deltaBadge = (d: number | null, label: string) => (
-    <span className="inline-flex items-center gap-0.5 text-[11px]">
+    <span className="inline-flex items-center gap-0.5 text-xs">
       <span className="text-slate-400">{label}</span>
       {d == null ? <span className="text-slate-300">–</span> : <span className={d > 0 ? 'text-red-500' : d < 0 ? 'text-blue-500' : 'text-slate-400'}>{d > 0 ? '▲' : d < 0 ? '▼' : ''}{Math.abs(d)}%</span>}
     </span>
@@ -595,15 +595,15 @@ export default function ExpensesPage() {
           ))}
         </div>
         {viewer === 'eddy' && (
-          <div className="card p-2.5 w-[200px] flex-shrink-0">
-            <p className="text-[11px] text-slate-500 mb-1.5 font-semibold">💰 잔금 현황</p>
+          <div className="card p-2.5 w-[220px] flex-shrink-0">
+            <p className="text-xs text-slate-500 mb-1.5 font-semibold">💰 잔금 현황</p>
             <div className="space-y-1">
               {BALANCE_ITEMS.map(([k, l, unit]) => (
                 <div key={k} className="flex items-center gap-0.5">
-                  <span className="text-[10px] text-slate-500 flex-shrink-0">{l}</span>
-                  <span className="text-[11px] text-slate-700 font-medium flex-1 text-right tabular-nums">{(balances[k] || 0).toLocaleString()}</span>
-                  <span className="text-[9px] text-slate-400">{unit}</span>
-                  <button onClick={() => adjustBalance(k, l, unit)} className="w-4 h-4 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-slate-200 text-[11px] flex-shrink-0">+</button>
+                  <span className="text-[11px] text-slate-500 flex-shrink-0">{l}</span>
+                  <span className="text-xs text-slate-700 font-medium flex-1 text-right tabular-nums">{(balances[k] || 0).toLocaleString()}</span>
+                  <span className="text-[10px] text-slate-400">{unit}</span>
+                  <button onClick={() => adjustBalance(k, l, unit)} className="w-4 h-4 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-slate-200 text-xs flex-shrink-0">+</button>
                 </div>
               ))}
             </div>
@@ -684,16 +684,16 @@ export default function ExpensesPage() {
                   const active = analysisMonth === k
                   return (
                     <button key={k} onClick={() => setAnalysisMonth(active ? null : k)}
-                      className={`card p-3.5 text-left transition-shadow hover:shadow-md min-h-[112px] flex flex-col ${active ? 'ring-2 ring-indigo-300' : ''}`}>
+                      className={`card p-3.5 text-left transition-shadow hover:shadow-md min-h-[116px] flex flex-col ${active ? 'ring-2 ring-indigo-300' : ''}`}>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-lg font-bold text-slate-800">{parseInt(k.slice(5, 7))}월</span>
-                        <span className={`text-sm font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
+                        <span className="text-xl font-bold text-slate-800">{parseInt(k.slice(5, 7))}월</span>
+                        <span className={`text-base font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-2 text-xs mb-2">
+                      <div className="grid grid-cols-2 gap-x-2 text-[13px] mb-2">
                         <div className="flex justify-between"><span className="text-green-500 font-medium">수입</span><span className="text-slate-600">{won(a.revenue)}</span></div>
                         <div className="flex justify-between"><span className="text-rose-400 font-medium">경비</span><span className="text-slate-600">{won(a.hospital)}</span></div>
                       </div>
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-slate-50 pt-1.5 mt-auto text-[11px]">
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-slate-50 pt-1.5 mt-auto text-xs">
                         {deltaBadge(d.dPrev, '전월')}{deltaBadge(d.dYear, '작년')}{deltaBadge(d.dAvg6, '6M')}
                       </div>
                     </button>
@@ -702,21 +702,21 @@ export default function ExpensesPage() {
               </div>
               {/* A: 병원 경비 분석 */}
               {viewer === 'eddy' && (
-                <div className="card p-3 w-full md:w-[36%] md:min-w-[240px] flex-shrink-0">
+                <div className="card p-3 w-full md:w-[34%] md:min-w-[220px] flex-shrink-0">
                   <div className="flex items-center gap-2 mb-2">
-                    {analysisMonth && <button onClick={() => setAnalysisMonth(null)} className="text-slate-400 hover:text-slate-700 text-base leading-none">←</button>}
-                    <h3 className="font-semibold text-slate-800 text-sm flex-1">🏥 병원 경비 분석</h3>
-                    <span className="text-[10px] text-slate-400">{analysisMonth ? `${analysisMonth.slice(0, 4)}년 ${parseInt(analysisMonth.slice(5, 7))}월` : '최근 6개월 평균'}</span>
+                    {analysisMonth && <button onClick={() => setAnalysisMonth(null)} className="text-slate-400 hover:text-slate-700 text-lg leading-none">←</button>}
+                    <h3 className="font-semibold text-slate-800 text-[15px] flex-1">🏥 병원 경비 분석</h3>
+                    <span className="text-[11px] text-slate-400">{analysisMonth ? `${analysisMonth.slice(0, 4)}년 ${parseInt(analysisMonth.slice(5, 7))}월` : '최근 6개월 평균'}</span>
                   </div>
                   {(() => {
                     const data = analysisMonth ? hospMonthDetail(analysisMonth) : { total: hosp6Avg.total, cats: hosp6Avg.cats.map(c => ({ name: c.name, amt: c.avg, pct: c.pct, color: c.color })) }
-                    if (data.cats.length === 0) return <p className="text-xs text-slate-400 py-4 text-center">데이터가 없어요</p>
+                    if (data.cats.length === 0) return <p className="text-[13px] text-slate-400 py-4 text-center">데이터가 없어요</p>
                     return (
                       <>
-                        <p className="text-xs text-slate-500 mb-2">총 {fmt(data.total)}{analysisMonth ? '' : ' (월평균)'}</p>
+                        <p className="text-[13px] text-slate-500 mb-2">총 {fmt(data.total)}{analysisMonth ? '' : ' (월평균)'}</p>
                         <div className="space-y-1.5">
                           {data.cats.map(c => (
-                            <div key={c.name} className="flex items-center gap-2 text-xs">
+                            <div key={c.name} className="flex items-center gap-2 text-[13px]">
                               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
                               <span className="text-slate-600 flex-1 truncate">{c.name}</span>
                               <span className="text-slate-700 font-medium">{fmt(c.amt)}</span>
@@ -739,13 +739,13 @@ export default function ExpensesPage() {
                   const prev = overview[i + 1]; const profit = o.revenue - o.hospital
                   const d = prev ? deltaPct(profit, prev.revenue - prev.hospital) : null
                   return (
-                  <div key={o.key} className="card p-2.5 w-[calc(16.66%-0.5rem)] min-w-[110px]">
+                  <div key={o.key} className="card p-3 w-[calc(16.66%-0.5rem)] min-w-[120px]">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-slate-700">{o.key}년</span>
+                      <span className="text-sm font-semibold text-slate-700">{o.key}년</span>
                       {deltaBadge(d, '')}
                     </div>
-                    <p className={`text-sm font-bold mb-1 ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</p>
-                    <div className="space-y-0.5 text-[10px]">
+                    <p className={`text-base font-bold mb-1 ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</p>
+                    <div className="space-y-0.5 text-xs">
                       <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(o.revenue)}</span></div>
                       <div className="flex justify-between"><span className="text-red-400">지출</span><span className="text-slate-600">{won(o.expense)}</span></div>
                       <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(o.hospital)}</span></div>
@@ -756,14 +756,14 @@ export default function ExpensesPage() {
                   </div>
                 )})}
                 <div className="card p-3 flex-1 min-w-[280px]">
-                  <h3 className="font-semibold text-slate-800 mb-1 text-xs">📈 순수익 추이 (최근 3년, 매출−병원경비)</h3>
+                  <h3 className="font-semibold text-slate-800 mb-1 text-sm">📈 순수익 추이 (최근 3년, 매출−병원경비)</h3>
                   <ResponsiveContainer width="100%" height={200}>
                     <LineChart data={profitChartData} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
-                      <XAxis dataKey="month" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `${Math.round(v / 10000)}만`} />
-                      <Tooltip formatter={(v, n) => [`${Number(v).toLocaleString()}원`, `${n}년`]} />
-                      <Legend formatter={v => `${v}년`} wrapperStyle={{ fontSize: 11 }} />
-                      {recentYears.map(y => <Line key={y} type="monotone" dataKey={y} stroke={YEAR_COLORS[y]} strokeWidth={2} dot={{ r: 2 }} />)}
+                      <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${Math.round(v / 10000)}만`} />
+                      <Tooltip formatter={(v, n) => [`${Number(v).toLocaleString()}원`, `${n}년`]} itemSorter={(it) => -Number(it.name)} />
+                      <Legend formatter={v => `${v}년`} wrapperStyle={{ fontSize: 12 }} />
+                      {[...recentYears].reverse().map(y => <Line key={y} type="monotone" dataKey={y} stroke={YEAR_COLORS[y]} strokeWidth={2} dot={{ r: 2 }} />)}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -775,12 +775,12 @@ export default function ExpensesPage() {
                     const prev = overview[idx + 4]; const profit = o.revenue - o.hospital
                     const d = prev ? deltaPct(profit, prev.revenue - prev.hospital) : null
                     return (
-                    <div key={o.key} className="card p-2.5">
+                    <div key={o.key} className="card p-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-slate-700">{o.key}년 {deltaBadge(d, '')}</span>
-                        <span className={`text-xs font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
+                        <span className="text-sm font-semibold text-slate-700">{o.key}년 {deltaBadge(d, '')}</span>
+                        <span className={`text-sm font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-2 text-[10px]">
+                      <div className="grid grid-cols-2 gap-x-2 text-xs">
                         <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(o.revenue)}</span></div>
                         <div className="flex justify-between"><span className="text-red-400">지출</span><span className="text-slate-600">{won(o.expense)}</span></div>
                         <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(o.hospital)}</span></div>
