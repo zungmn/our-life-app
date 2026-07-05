@@ -186,7 +186,7 @@ export default function CalendarPage() {
     : []
 
   return (
-    <div className="p-6 md:p-10 max-w-full">
+    <div className="p-4 md:p-10 max-w-full">
       <h2 className="text-2xl font-bold text-slate-800 mb-4">📅 Calendar</h2>
 
       {/* Tabs */}

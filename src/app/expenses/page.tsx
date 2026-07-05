@@ -60,10 +60,28 @@ export default function ExpensesPage() {
   const [yearItemsRaw, setYearItemsRaw] = useState<CalItem[]>([])
   const [allItems, setAllItems] = useState<CalItem[]>([])
   const [ymEdit, setYmEdit] = useState(false)
-  // 잔금 현황 (매달 리셋 X, 항상 유지) — localStorage
+  const [selDay, setSelDay] = useState<string | null>(null) // 캘린더에서 선택한 날짜 (세부 항목 패널)
+  // 잔금 현황 (매달 리셋 X, 항상 유지) — Supabase(app_state)에 저장하여 기기 간 공유
   const [balances, setBalances] = useState<Record<string, number>>({})
-  useEffect(() => { try { setBalances(JSON.parse(localStorage.getItem('budget_balances') || '{}')) } catch { setBalances({}) } }, [])
-  const setBalance = (k: string, v: number) => { const nb = { ...balances, [k]: v }; setBalances(nb); localStorage.setItem('budget_balances', JSON.stringify(nb)) }
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('app_state').select('value').eq('key', 'budget_balances').maybeSingle()
+      if (data?.value) { setBalances(data.value as Record<string, number>); return }
+      // 최초 1회: 예전 localStorage 값이 있으면 이전(migrate)
+      try {
+        const local = JSON.parse(localStorage.getItem('budget_balances') || '{}')
+        if (local && Object.keys(local).length) {
+          setBalances(local)
+          await supabase.from('app_state').upsert({ key: 'budget_balances', value: local })
+        }
+      } catch { /* noop */ }
+    })()
+  }, [])
+  const setBalance = async (k: string, v: number) => {
+    const nb = { ...balances, [k]: v }
+    setBalances(nb)
+    await supabase.from('app_state').upsert({ key: 'budget_balances', value: nb })
+  }
   const adjustBalance = (k: string, label: string, unit: string) => {
     const ex = unit === '돈' ? '0.7' : '50000'
     const s = prompt(`${label} 증감액 입력 (더하기 예: ${ex}, 빼기 예: -${ex})`)
@@ -199,6 +217,15 @@ export default function ExpensesPage() {
   // 치과 총 매출(수동 입력) + 수동 수입 = 이번 달 수입
   const displayIncome = totalIncome + (viewer === 'eddy' ? toNum(monthRevenue) : 0)
   const scopeTotal = (s: BudgetScope) => sum(expenseItems.filter(i => i.scope === s))
+  // 요약 카드 (모바일 2열 순서: 수입·지출 / 병원경비·가계 / 개인·저축)
+  const summaryCards: { label: string; val: number; cls: string; income?: boolean }[] = [
+    { label: '이번 달 수입', val: displayIncome, cls: 'text-green-500', income: true },
+    { label: '이번 달 지출', val: totalExpense, cls: 'text-red-500' },
+    ...(viewer === 'eddy' ? [{ label: '병원 경비', val: scopeTotal('hospital'), cls: 'text-rose-500' }] : []),
+    { label: '가계', val: scopeTotal('household'), cls: 'text-teal-600' },
+    { label: '개인', val: scopeTotal('personal'), cls: 'text-amber-600' },
+    { label: '저축', val: totalSaving, cls: 'text-indigo-600' },
+  ]
 
   // ===== 모달 =====
   const openAdd = (date?: string) => {
@@ -563,47 +590,41 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* 요약(좌) + 잔금 현황(우, Eddy) */}
-      <div className="flex gap-3 mb-4 items-stretch">
-        <div className="flex-1 grid grid-cols-3 gap-2">
-          {/* 이번 달 수입 */}
-          <div className="card p-3 flex flex-col justify-center">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs text-slate-400">이번 달 수입</p>
-              {viewer === 'eddy' && (
-                <button onClick={async () => {
-                  try {
-                    const res = await fetch(`/api/clinic-revenue?month=${format(currentDate, 'yyyy-MM')}`)
-                    const j = await res.json()
-                    if (j.error) { alert('불러오기 실패: ' + j.error); return }
-                    saveRevenue(String(j.total || 0))
-                    if (Array.isArray(j.days)) saveRevenueDays(j.days)
-                    alert(`이번 달 매출 ${Number(j.total || 0).toLocaleString()}원을 불러왔습니다.`)
-                  } catch { alert('연결 실패') }
-                }} className="text-[10px] px-2 py-0.5 rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors">OS 불러오기</button>
-              )}
-            </div>
-            <p className="text-base font-bold text-green-500">{fmt(displayIncome)}</p>
-          </div>
-          <div className="card p-3 flex flex-col justify-center"><p className="text-xs text-slate-400 mb-1">이번 달 지출</p><p className="text-base font-bold text-red-500">{fmt(totalExpense)}</p></div>
-          <div className="card p-3 flex flex-col justify-center"><p className="text-xs text-slate-400 mb-1">저축</p><p className="text-base font-bold text-indigo-600">{fmt(totalSaving)}</p></div>
-          {(['hospital', 'household', 'personal'] as BudgetScope[]).filter(s => viewer === 'eddy' || s !== 'hospital').map(s => (
-            <div key={s} className="card p-3 flex flex-col justify-center">
-              <p className="text-xs text-slate-400 mb-1">{SCOPE_LABEL[s]}</p>
-              <p className={`text-base font-bold ${s === 'hospital' ? 'text-rose-500' : s === 'household' ? 'text-teal-600' : 'text-amber-600'}`}>{fmt(scopeTotal(s))}</p>
+      {/* 요약(좌) + 잔금 현황(우, Eddy)
+          모바일: 수입·지출 / 병원경비·가계 / 개인·저축 / 잔금현황(전폭) 순으로 세로 배치 */}
+      <div className="flex flex-col md:flex-row gap-3 mb-4 items-stretch">
+        <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-2">
+          {summaryCards.map(c => (
+            <div key={c.label} className="card p-3 flex flex-col justify-center">
+              <div className="flex items-center justify-between mb-1 gap-1">
+                <p className="text-sm text-slate-400">{c.label}</p>
+                {c.income && viewer === 'eddy' && (
+                  <button onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/clinic-revenue?month=${format(currentDate, 'yyyy-MM')}`)
+                      const j = await res.json()
+                      if (j.error) { alert('불러오기 실패: ' + j.error); return }
+                      saveRevenue(String(j.total || 0))
+                      if (Array.isArray(j.days)) saveRevenueDays(j.days)
+                      alert(`이번 달 매출 ${Number(j.total || 0).toLocaleString()}원을 불러왔습니다.`)
+                    } catch { alert('연결 실패') }
+                  }} className="text-[11px] px-2 py-0.5 rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors flex-shrink-0">OS 불러오기</button>
+                )}
+              </div>
+              <p className={`text-lg font-bold ${c.cls}`}>{fmt(c.val)}</p>
             </div>
           ))}
         </div>
         {viewer === 'eddy' && (
-          <div className="card p-2.5 w-[240px] flex-shrink-0">
-            <p className="text-sm text-slate-500 mb-1.5 font-semibold">💰 잔금 현황</p>
-            <div className="space-y-1">
+          <div className="card p-3 w-full md:w-[300px] flex-shrink-0">
+            <p className="text-base text-slate-500 mb-1.5 font-semibold">💰 잔금 현황</p>
+            <div className="space-y-1.5">
               {BALANCE_ITEMS.map(([k, l, unit]) => (
-                <div key={k} className="flex items-center gap-0.5">
-                  <span className="text-xs text-slate-500 flex-shrink-0">{l}</span>
-                  <span className="text-sm text-slate-700 font-medium flex-1 text-right tabular-nums">{(balances[k] || 0).toLocaleString()}</span>
-                  <span className="text-[11px] text-slate-400">{unit}</span>
-                  <button onClick={() => adjustBalance(k, l, unit)} className="w-4 h-4 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-slate-200 text-xs flex-shrink-0">+</button>
+                <div key={k} className="flex items-center gap-1">
+                  <span className="text-sm text-slate-500 flex-shrink-0">{l}</span>
+                  <span className="text-base text-slate-700 font-medium flex-1 text-right tabular-nums">{(balances[k] || 0).toLocaleString()}</span>
+                  <span className="text-xs text-slate-400">{unit}</span>
+                  <button onClick={() => adjustBalance(k, l, unit)} className="w-5 h-5 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-slate-200 text-sm flex-shrink-0">+</button>
                 </div>
               ))}
             </div>
@@ -615,7 +636,7 @@ export default function ExpensesPage() {
       <div className="card overflow-hidden">
           <div className="grid grid-cols-7 border-b border-slate-100">
             {WEEKDAYS.map((d, i) => (
-              <div key={d} className={`text-center text-xs font-medium py-2.5 ${i === 6 ? 'text-red-400' : i === 5 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
+              <div key={d} className={`text-center text-sm font-medium py-2.5 ${i === 6 ? 'text-red-400' : i === 5 ? 'text-blue-400' : 'text-slate-500'}`}>{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7">
@@ -628,16 +649,17 @@ export default function ExpensesPage() {
               const shown = items.slice(0, 6)
               const hiddenCount = items.length - shown.length
               const holiday = holidays[ds]
+              const isSel = selDay === ds
               return (
-                <div key={ds} onClick={() => openAdd(ds)}
-                  className={`border-b border-r border-slate-50 min-h-[110px] p-1 cursor-pointer hover:bg-slate-50/70 transition-colors ${isLastRow ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
+                <div key={ds} onClick={() => setSelDay(ds)}
+                  className={`border-b border-r border-slate-50 min-h-[110px] p-1 cursor-pointer hover:bg-slate-50/70 transition-colors ${isLastRow ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''} ${isSel ? 'ring-2 ring-inset ring-blue-300 bg-blue-50/40' : ''}`}>
                   <div className="flex items-center gap-1 mb-1">
-                    <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-blue-500 text-white' : !inMonth ? (holiday ? 'text-red-300' : 'text-slate-300') : (holiday || dow === 0) ? 'text-red-500' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
-                    {holiday && inMonth && <span className="text-[10px] text-red-400 truncate">{holiday}</span>}
+                    <div className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-blue-500 text-white' : !inMonth ? (holiday ? 'text-red-300' : 'text-slate-300') : (holiday || dow === 0) ? 'text-red-500' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
+                    {holiday && inMonth && <span className="text-xs text-red-400 truncate">{holiday}</span>}
                   </div>
                   <div className="space-y-0.5">
                     {viewer === 'eddy' && revenueByDay[ds] > 0 && (
-                      <div className="flex items-center gap-1 text-[11px] px-1 py-0.5 rounded bg-green-100 text-green-700 font-medium">
+                      <div className="flex items-center gap-1 text-[13px] px-1 py-0.5 rounded bg-green-100 text-green-700 font-medium">
                         <span className="truncate flex-1">매출</span>
                         <span className="flex-shrink-0">+{revenueByDay[ds].toLocaleString()}원</span>
                       </div>
@@ -647,18 +669,57 @@ export default function ExpensesPage() {
                         onClick={e => e.stopPropagation()}
                         onDoubleClick={e => { e.stopPropagation(); it.source === 'tx' ? openEdit(it.tx!) : openEditClinic(it.cf!) }}
                         title={`${it.memo} · ${it.category}`}
-                        className={`flex items-center gap-1 text-[11px] px-1 py-0.5 rounded cursor-pointer ${itemColor(it)}`}>
+                        className={`flex items-center gap-1 text-[13px] px-1 py-0.5 rounded cursor-pointer ${itemColor(it)}`}>
                         <span className="truncate flex-1">{it.memo}</span>
                         <span className="flex-shrink-0">{it.type === 'income' ? '+' : '-'}{it.amount.toLocaleString()}원</span>
                       </div>
                     ))}
-                    {hiddenCount > 0 && <div className="text-[10px] text-slate-400 px-1">+{hiddenCount}</div>}
+                    {hiddenCount > 0 && <div className="text-xs text-slate-400 px-1">+{hiddenCount}</div>}
                   </div>
                 </div>
               )
             })}
           </div>
         </div>
+
+        {/* 선택한 날짜 세부 항목 */}
+        {selDay && (() => {
+          const dayItems = monthItems.filter(it => it.date === selDay).sort((a, b) => b.amount - a.amount)
+          const rev = viewer === 'eddy' ? (revenueByDay[selDay] || 0) : 0
+          return (
+            <div className="card p-4 mt-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-slate-800 text-base">
+                  {format(new Date(selDay), 'M월 d일 (EEEE)', { locale: ko })}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => openAdd(selDay)} className="text-sm bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition-colors">+ 이 날 추가</button>
+                  <button onClick={() => setSelDay(null)}><X size={18} className="text-slate-400" /></button>
+                </div>
+              </div>
+              {rev > 0 && (
+                <div className="flex items-center justify-between text-sm px-2 py-1.5 rounded bg-green-100 text-green-700 font-medium mb-1">
+                  <span>매출</span><span>+{rev.toLocaleString()}원</span>
+                </div>
+              )}
+              {dayItems.length === 0 && rev === 0 ? (
+                <p className="text-sm text-slate-400 py-2">이 날 기록이 없어요</p>
+              ) : (
+                <div className="space-y-1">
+                  {dayItems.map(it => (
+                    <div key={it.id}
+                      onClick={() => it.source === 'tx' ? openEdit(it.tx!) : openEditClinic(it.cf!)}
+                      className={`flex items-center gap-2 text-sm px-2 py-1.5 rounded cursor-pointer ${itemColor(it)}`}>
+                      <span className="flex-1 truncate">{it.memo}</span>
+                      <span className="text-xs opacity-70">{it.category}</span>
+                      <span className="font-medium flex-shrink-0">{it.type === 'income' ? '+' : '-'}{it.amount.toLocaleString()}원</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </>)}
 
       {/* Stats */}
@@ -687,13 +748,13 @@ export default function ExpensesPage() {
                       className={`card p-3.5 text-left transition-shadow hover:shadow-md min-h-[116px] flex flex-col ${active ? 'ring-2 ring-indigo-300' : ''}`}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xl font-bold text-slate-800">{parseInt(k.slice(5, 7))}월</span>
-                        <span className={`text-lg font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
+                        <span className={`text-xl font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-2 text-[14px] mb-2">
+                      <div className="grid grid-cols-2 gap-x-2 text-base mb-2">
                         <div className="flex justify-between"><span className="text-green-500 font-medium">수입</span><span className="text-slate-600">{won(a.revenue)}</span></div>
                         <div className="flex justify-between"><span className="text-rose-400 font-medium">경비</span><span className="text-slate-600">{won(a.hospital)}</span></div>
                       </div>
-                      <div className="flex justify-between items-center gap-1 border-t border-slate-50 pt-1.5 mt-auto text-[13px]">
+                      <div className="flex justify-between items-center gap-1 border-t border-slate-50 pt-1.5 mt-auto text-sm">
                         {deltaBadge(d.dPrev, '전월')}{deltaBadge(d.dYear, '작년')}{deltaBadge(d.dAvg6, '6M')}
                       </div>
                     </button>
@@ -702,7 +763,7 @@ export default function ExpensesPage() {
               </div>
               {/* A: 병원 경비 분석 */}
               {viewer === 'eddy' && (
-                <div className="card p-3 w-full md:w-[30%] md:min-w-[180px] flex-shrink-0">
+                <div className="card p-3 w-full md:w-[26%] md:min-w-[120px] flex-shrink-0">
                   <div className="flex items-center gap-2 mb-2">
                     {analysisMonth && <button onClick={() => setAnalysisMonth(null)} className="text-slate-400 hover:text-slate-700 text-lg leading-none">←</button>}
                     <h3 className="font-semibold text-slate-800 text-[15px] flex-1">🏥 병원 경비 분석</h3>
@@ -739,13 +800,13 @@ export default function ExpensesPage() {
                   const prev = overview[i + 1]; const profit = o.revenue - o.hospital
                   const d = prev ? deltaPct(profit, prev.revenue - prev.hospital) : null
                   return (
-                  <div key={o.key} className="card p-3 w-[calc(16.66%-0.5rem)] min-w-[130px]">
+                  <div key={o.key} className="card p-3 w-[calc(16.66%-0.5rem)] min-w-[140px]">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-base font-semibold text-slate-700">{o.key}년</span>
+                      <span className="text-lg font-semibold text-slate-700">{o.key}년</span>
                       {deltaBadge(d, '')}
                     </div>
-                    <p className={`text-lg font-bold mb-1 ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</p>
-                    <div className="space-y-0.5 text-sm">
+                    <p className={`text-xl font-bold mb-1 ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</p>
+                    <div className="space-y-0.5 text-[15px]">
                       <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(o.revenue)}</span></div>
                       <div className="flex justify-between"><span className="text-red-400">지출</span><span className="text-slate-600">{won(o.expense)}</span></div>
                       <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(o.hospital)}</span></div>
@@ -756,13 +817,21 @@ export default function ExpensesPage() {
                   </div>
                 )})}
                 <div className="card p-3 flex-1 min-w-[280px]">
-                  <h3 className="font-semibold text-slate-800 mb-1 text-base">📈 순수익 추이 (최근 3년, 매출−병원경비)</h3>
+                  <h3 className="font-semibold text-slate-800 mb-1 text-lg">📈 순수익 추이 (최근 3년, 매출−병원경비)</h3>
                   <ResponsiveContainer width="100%" height={200}>
                     <LineChart data={profitChartData} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
                       <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${Math.round(v / 10000)}만`} />
                       <Tooltip formatter={(v, n) => [`${Number(v).toLocaleString()}원`, `${n}년`]} itemSorter={(it) => -Number(it.name)} />
-                      <Legend formatter={v => `${v}년`} wrapperStyle={{ fontSize: 12 }} />
+                      <Legend content={() => (
+                        <div className="flex justify-center gap-4 mt-1">
+                          {[...recentYears].reverse().map(y => (
+                            <span key={y} className="inline-flex items-center gap-1 text-[13px] text-slate-600">
+                              <span className="inline-block w-3.5 h-[3px] rounded" style={{ background: YEAR_COLORS[y] }} />{y}년
+                            </span>
+                          ))}
+                        </div>
+                      )} />
                       {[...recentYears].reverse().map(y => <Line key={y} type="monotone" dataKey={y} stroke={YEAR_COLORS[y]} strokeWidth={2} dot={{ r: 2 }} />)}
                     </LineChart>
                   </ResponsiveContainer>
@@ -777,10 +846,10 @@ export default function ExpensesPage() {
                     return (
                     <div key={o.key} className="card p-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-base font-semibold text-slate-700">{o.key}년 {deltaBadge(d, '')}</span>
-                        <span className={`text-base font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
+                        <span className="text-lg font-semibold text-slate-700">{o.key}년 {deltaBadge(d, '')}</span>
+                        <span className={`text-lg font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-2 text-sm">
+                      <div className="grid grid-cols-2 gap-x-2 text-[15px]">
                         <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(o.revenue)}</span></div>
                         <div className="flex justify-between"><span className="text-red-400">지출</span><span className="text-slate-600">{won(o.expense)}</span></div>
                         <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(o.hospital)}</span></div>

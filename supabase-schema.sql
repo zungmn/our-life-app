@@ -130,3 +130,15 @@ ALTER TABLE archive_items ADD COLUMN IF NOT EXISTS record_time text;
 -- 기존 분류 → 새 5개 분류 자동 이동
 UPDATE archive_items SET category = '사진기록' WHERE category IN ('사진', '건강', '재정', '기타') OR category IS NULL;
 UPDATE archive_items SET category = '치과 면허증' WHERE category = '기록증/수료증';
+
+-- ===== 앱 공용 상태 저장 (기기 간 공유) =====
+-- 잔금 현황 등 localStorage 대신 서버에 저장하여 PC/모바일 동기화
+CREATE TABLE IF NOT EXISTS app_state (
+  key text PRIMARY KEY,
+  value jsonb,
+  updated_at timestamptz DEFAULT now()
+);
+ALTER TABLE app_state ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "app_state all" ON app_state;
+CREATE POLICY "app_state all" ON app_state FOR ALL USING (true) WITH CHECK (true);
+GRANT ALL ON TABLE app_state TO anon, authenticated;

@@ -288,7 +288,7 @@ export default function Home() {
   }
 
   return (
-    <div className="p-6 md:p-10 max-w-full mx-auto">
+    <div className="p-4 md:p-10 max-w-full mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
@@ -309,7 +309,7 @@ export default function Home() {
 
       <div className="grid md:grid-cols-2 gap-4 mb-4">
         {/* Todo */}
-        <div className="card p-6">
+        <div className="card p-4 md:p-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-slate-800 text-lg">📋 Todo</h3>
             <div className="flex items-center gap-2">
@@ -344,7 +344,7 @@ export default function Home() {
         </div>
 
         {/* Project */}
-        <div className="card p-6">
+        <div className="card p-4 md:p-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-slate-800 text-lg">🗂️ Project</h3>
             <div className="flex items-center gap-2">
