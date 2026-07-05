@@ -7,9 +7,9 @@ import { format, startOfMonth, endOfMonth, getDay, isToday, addMonths, subMonths
 import { ko } from 'date-fns/locale'
 import { Plus, X, Trash2, Check, ChevronLeft, ChevronRight, Paperclip, Download } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import DatePickerInput from '@/components/DatePickerInput'
 import { holidaysForYears } from '@/lib/holidays'
+import { ProjectDetailModal, ProjectAddModal } from '@/components/ProjectModals'
 
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 const TODAY = format(new Date(), 'yyyy-MM-dd')
@@ -43,7 +43,6 @@ function formatKoreanTime(time?: string) {
 }
 
 export default function Home() {
-  const router = useRouter()
   const [viewer, setViewer] = useState<'eddy' | 'judy'>('eddy')
   const [todos, setTodos] = useState<Todo[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -70,11 +69,10 @@ export default function Home() {
 
   // Edit state
   const [editTodo, setEditTodo] = useState<Todo | null>(null)
-  const [editProject, setEditProject] = useState<Project | null>(null)
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null)
 
   const [todoForm, setTodoForm] = useState({ title: '', deadline: TODAY, shared: false })
-  const [projectForm, setProjectForm] = useState({ title: '', deadline: '', shared: false, memo: '' })
   const [eventForm, setEventForm] = useState({ title: '', date: TODAY, end_date: '', time: '', person: 'both' as 'eddy' | 'judy' | 'both', note: '', photos: [] as string[] })
 
   useEffect(() => {
@@ -166,34 +164,7 @@ export default function Home() {
   }
 
   // --- Project handlers ---
-  const openAddProject = () => {
-    setEditProject(null)
-    setProjectForm({ title: '', deadline: '', shared: false, memo: '' })
-    setShowProjectModal(true)
-  }
-  const openEditProject = (project: Project) => {
-    setEditProject(project)
-    setProjectForm({ title: project.title, deadline: project.deadline || '', shared: project.visibility === 'both', memo: '' })
-    setShowProjectModal(true)
-  }
-  const handleProjectSave = async () => {
-    if (!projectForm.title.trim()) return
-    const visibility = projectForm.shared ? 'both' : viewer
-    if (editProject) {
-      const { error } = await supabase.from('projects').update({ title: projectForm.title, deadline: projectForm.deadline || null, visibility }).eq('id', editProject.id)
-      if (error) { alert('수정 실패: ' + error.message); return }
-    } else {
-      const { data: proj, error } = await supabase.from('projects').insert({ title: projectForm.title, status: 'in_progress', visibility, deadline: projectForm.deadline || null }).select().single()
-      if (error) { alert('저장 실패: ' + error.message); return }
-      if (proj && projectForm.memo.trim()) {
-        await supabase.from('project_memos').insert({ project_id: proj.id, content: projectForm.memo, author: viewer })
-      }
-    }
-    setProjectForm({ title: '', deadline: '', shared: false, memo: '' })
-    setEditProject(null)
-    setShowProjectModal(false)
-    await fetchAll()
-  }
+  const openAddProject = () => setShowProjectModal(true)
   const handleProjectComplete = async (project: Project) => {
     await supabase.from('projects').update({ status: project.status === 'in_progress' ? 'completed' : 'in_progress' }).eq('id', project.id)
     await fetchAll()
@@ -389,7 +360,7 @@ export default function Home() {
             {visibleProjects.map(project => {
               const dl = project.deadline ? daysLeft(project.deadline) : null
               return (
-                <div key={project.id} onDoubleClick={() => router.push('/projects')}
+                <div key={project.id} onDoubleClick={() => setSelectedProject(project)}
                   className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg group cursor-pointer">
                   <div className="w-3 h-3 rounded-full bg-blue-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -504,46 +475,17 @@ export default function Home() {
         </div>
       )}
 
-      {/* Project 모달 (추가 / 수정) */}
+      {/* Project 추가 모달 (프로젝트 페이지와 동일) */}
       {showProjectModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowProjectModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-5" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-800">{editProject ? 'Project 수정' : 'Project 추가'}</h3>
-              <button onClick={() => setShowProjectModal(false)}><X size={20} className="text-slate-400" /></button>
-            </div>
-            <div className="space-y-3">
-              <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400"
-                placeholder="프로젝트명" value={projectForm.title}
-                onChange={e => setProjectForm(f => ({ ...f, title: e.target.value }))}
-                onKeyDown={e => { if (e.key === 'Enter' && projectForm.title.trim()) handleProjectSave() }} autoFocus />
-              <div>
-                <label className="text-xs text-slate-500 mb-1 block">마감일 (선택)</label>
-                <DatePickerInput value={projectForm.deadline} onChange={v => setProjectForm(f => ({ ...f, deadline: v }))} className="w-full" />
-              </div>
-              {!editProject && (
-                <div>
-                  <label className="text-xs text-slate-500 mb-1 block">진행 메모 (선택)</label>
-                  <textarea className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400 resize-none"
-                    rows={3} placeholder="진행 상황 메모..."
-                    value={projectForm.memo} onChange={e => setProjectForm(f => ({ ...f, memo: e.target.value }))} />
-                </div>
-              )}
-              <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
-                <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${projectForm.shared ? 'bg-purple-500' : 'bg-slate-300'}`}>
-                  <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${projectForm.shared ? 'translate-x-4' : 'translate-x-0'}`} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-700">함께 보기</p>
-                  <p className="text-xs text-slate-400">{projectForm.shared ? 'Eddy & Judy 모두 볼 수 있음' : `${viewer === 'eddy' ? 'Eddy' : 'Judy'}만 볼 수 있음`}</p>
-                </div>
-                <input type="checkbox" className="hidden" checked={projectForm.shared} onChange={e => setProjectForm(f => ({ ...f, shared: e.target.checked }))} />
-              </label>
-              <button onClick={handleProjectSave} disabled={!projectForm.title.trim()}
-                className="w-full bg-purple-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-purple-600 transition-colors disabled:opacity-50">저장</button>
-            </div>
-          </div>
-        </div>
+        <ProjectAddModal viewer={viewer} defaultStatus="in_progress"
+          onClose={() => setShowProjectModal(false)}
+          onSaved={proj => { setShowProjectModal(false); fetchAll(); setSelectedProject(proj) }} />
+      )}
+
+      {/* Project 상세/수정 모달 (프로젝트 페이지와 동일) */}
+      {selectedProject && (
+        <ProjectDetailModal project={selectedProject} viewer={viewer}
+          onClose={() => setSelectedProject(null)} onChanged={fetchAll} />
       )}
 
       {/* 일정 모달 (추가 / 수정) */}

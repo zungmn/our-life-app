@@ -595,14 +595,14 @@ export default function ExpensesPage() {
           ))}
         </div>
         {viewer === 'eddy' && (
-          <div className="card p-2.5 w-[220px] flex-shrink-0">
-            <p className="text-xs text-slate-500 mb-1.5 font-semibold">💰 잔금 현황</p>
+          <div className="card p-2.5 w-[240px] flex-shrink-0">
+            <p className="text-sm text-slate-500 mb-1.5 font-semibold">💰 잔금 현황</p>
             <div className="space-y-1">
               {BALANCE_ITEMS.map(([k, l, unit]) => (
                 <div key={k} className="flex items-center gap-0.5">
-                  <span className="text-[11px] text-slate-500 flex-shrink-0">{l}</span>
-                  <span className="text-xs text-slate-700 font-medium flex-1 text-right tabular-nums">{(balances[k] || 0).toLocaleString()}</span>
-                  <span className="text-[10px] text-slate-400">{unit}</span>
+                  <span className="text-xs text-slate-500 flex-shrink-0">{l}</span>
+                  <span className="text-sm text-slate-700 font-medium flex-1 text-right tabular-nums">{(balances[k] || 0).toLocaleString()}</span>
+                  <span className="text-[11px] text-slate-400">{unit}</span>
                   <button onClick={() => adjustBalance(k, l, unit)} className="w-4 h-4 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-slate-200 text-xs flex-shrink-0">+</button>
                 </div>
               ))}
@@ -687,13 +687,13 @@ export default function ExpensesPage() {
                       className={`card p-3.5 text-left transition-shadow hover:shadow-md min-h-[116px] flex flex-col ${active ? 'ring-2 ring-indigo-300' : ''}`}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xl font-bold text-slate-800">{parseInt(k.slice(5, 7))}월</span>
-                        <span className={`text-base font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
+                        <span className={`text-lg font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-2 text-[13px] mb-2">
+                      <div className="grid grid-cols-2 gap-x-2 text-[14px] mb-2">
                         <div className="flex justify-between"><span className="text-green-500 font-medium">수입</span><span className="text-slate-600">{won(a.revenue)}</span></div>
                         <div className="flex justify-between"><span className="text-rose-400 font-medium">경비</span><span className="text-slate-600">{won(a.hospital)}</span></div>
                       </div>
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-slate-50 pt-1.5 mt-auto text-xs">
+                      <div className="flex justify-between items-center gap-1 border-t border-slate-50 pt-1.5 mt-auto text-[13px]">
                         {deltaBadge(d.dPrev, '전월')}{deltaBadge(d.dYear, '작년')}{deltaBadge(d.dAvg6, '6M')}
                       </div>
                     </button>
@@ -702,7 +702,7 @@ export default function ExpensesPage() {
               </div>
               {/* A: 병원 경비 분석 */}
               {viewer === 'eddy' && (
-                <div className="card p-3 w-full md:w-[34%] md:min-w-[220px] flex-shrink-0">
+                <div className="card p-3 w-full md:w-[30%] md:min-w-[180px] flex-shrink-0">
                   <div className="flex items-center gap-2 mb-2">
                     {analysisMonth && <button onClick={() => setAnalysisMonth(null)} className="text-slate-400 hover:text-slate-700 text-lg leading-none">←</button>}
                     <h3 className="font-semibold text-slate-800 text-[15px] flex-1">🏥 병원 경비 분석</h3>
@@ -713,10 +713,10 @@ export default function ExpensesPage() {
                     if (data.cats.length === 0) return <p className="text-[13px] text-slate-400 py-4 text-center">데이터가 없어요</p>
                     return (
                       <>
-                        <p className="text-[13px] text-slate-500 mb-2">총 {fmt(data.total)}{analysisMonth ? '' : ' (월평균)'}</p>
+                        <p className="text-sm text-slate-500 mb-2">총 {fmt(data.total)}{analysisMonth ? '' : ' (월평균)'}</p>
                         <div className="space-y-1.5">
                           {data.cats.map(c => (
-                            <div key={c.name} className="flex items-center gap-2 text-[13px]">
+                            <div key={c.name} className="flex items-center gap-2 text-sm">
                               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
                               <span className="text-slate-600 flex-1 truncate">{c.name}</span>
                               <span className="text-slate-700 font-medium">{fmt(c.amt)}</span>
@@ -739,13 +739,13 @@ export default function ExpensesPage() {
                   const prev = overview[i + 1]; const profit = o.revenue - o.hospital
                   const d = prev ? deltaPct(profit, prev.revenue - prev.hospital) : null
                   return (
-                  <div key={o.key} className="card p-3 w-[calc(16.66%-0.5rem)] min-w-[120px]">
+                  <div key={o.key} className="card p-3 w-[calc(16.66%-0.5rem)] min-w-[130px]">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold text-slate-700">{o.key}년</span>
+                      <span className="text-base font-semibold text-slate-700">{o.key}년</span>
                       {deltaBadge(d, '')}
                     </div>
-                    <p className={`text-base font-bold mb-1 ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</p>
-                    <div className="space-y-0.5 text-xs">
+                    <p className={`text-lg font-bold mb-1 ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</p>
+                    <div className="space-y-0.5 text-sm">
                       <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(o.revenue)}</span></div>
                       <div className="flex justify-between"><span className="text-red-400">지출</span><span className="text-slate-600">{won(o.expense)}</span></div>
                       <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(o.hospital)}</span></div>
@@ -756,7 +756,7 @@ export default function ExpensesPage() {
                   </div>
                 )})}
                 <div className="card p-3 flex-1 min-w-[280px]">
-                  <h3 className="font-semibold text-slate-800 mb-1 text-sm">📈 순수익 추이 (최근 3년, 매출−병원경비)</h3>
+                  <h3 className="font-semibold text-slate-800 mb-1 text-base">📈 순수익 추이 (최근 3년, 매출−병원경비)</h3>
                   <ResponsiveContainer width="100%" height={200}>
                     <LineChart data={profitChartData} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
                       <XAxis dataKey="month" tick={{ fontSize: 11 }} />
@@ -777,10 +777,10 @@ export default function ExpensesPage() {
                     return (
                     <div key={o.key} className="card p-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-semibold text-slate-700">{o.key}년 {deltaBadge(d, '')}</span>
-                        <span className={`text-sm font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
+                        <span className="text-base font-semibold text-slate-700">{o.key}년 {deltaBadge(d, '')}</span>
+                        <span className={`text-base font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{won(profit)}</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-2 text-xs">
+                      <div className="grid grid-cols-2 gap-x-2 text-sm">
                         <div className="flex justify-between"><span className="text-slate-400">수입</span><span className="text-slate-600">{won(o.revenue)}</span></div>
                         <div className="flex justify-between"><span className="text-red-400">지출</span><span className="text-slate-600">{won(o.expense)}</span></div>
                         <div className="flex justify-between"><span className="text-rose-400">병원</span><span className="text-slate-600">{won(o.hospital)}</span></div>

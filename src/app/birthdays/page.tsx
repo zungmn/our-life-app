@@ -217,8 +217,9 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
   }
 
   const sortedByUpcoming = [...birthdays].sort((a, b) => nextBirthdayOf(a).days - nextBirthdayOf(b).days)
+  const CUR_YEAR = new Date().getFullYear()
   const byMonth = filterMonth > 0
-    ? birthdays.filter(b => parseInt(b.birthday.split('-')[0]) === filterMonth)
+    ? sortedByUpcoming.filter(b => parseInt(solarMMDDForYear(b, CUR_YEAR).split('-')[0]) === filterMonth)
     : sortedByUpcoming
 
   const selectedGifts = selected ? (gifts[selected.id] || []).sort((a, b) => b.year - a.year) : []
@@ -329,7 +330,8 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
         <div className="space-y-2">
           {byMonth.map(bd => {
             const nb = nextBirthdayOf(bd)
-            const [m, d] = bd.birthday.split('-')
+            // 음력이면 올해 양력으로 변환한 날짜를 표시
+            const [m, d] = solarMMDDForYear(bd, CUR_YEAR).split('-')
             const bdGifts = gifts[bd.id] || []
             return (
               <button key={bd.id} onClick={() => setSelected(bd)}
@@ -342,6 +344,7 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-slate-800 text-xl">{bd.name}</p>
+                      {bd.lunar_birthday && <span className="text-xs bg-rose-50 text-rose-400 px-1.5 py-0.5 rounded-full">음력 {bd.lunar_birthday.replace('-', '.')}</span>}
                       {bd.relation && <span className="text-base text-slate-400">{bd.relation}</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
