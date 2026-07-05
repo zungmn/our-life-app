@@ -28,6 +28,7 @@ export default function ProjectsPage() {
   const [memoText, setMemoText] = useState('')
   const [editMemoId, setEditMemoId] = useState<string | null>(null)
   const [editMemoText, setEditMemoText] = useState('')
+  const [openMemos, setOpenMemos] = useState<Record<string, boolean>>({})
   const [todoText, setTodoText] = useState('')
   const [todoDeadline, setTodoDeadline] = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -295,17 +296,32 @@ export default function ProjectsPage() {
                             className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs hover:bg-slate-200 transition-colors">취소</button>
                         </div>
                       </div>
-                    ) : (
-                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{memo.content}</p>
-                    )}
+                    ) : (() => {
+                      const nl = memo.content.indexOf('\n')
+                      const hasBody = nl >= 0 && memo.content.slice(nl + 1).trim().length > 0
+                      if (!hasBody) return <p className="text-sm text-slate-700 whitespace-pre-wrap">{memo.content}</p>
+                      const title = memo.content.slice(0, nl)
+                      const body = memo.content.slice(nl + 1)
+                      const open = !!openMemos[memo.id]
+                      return (
+                        <div>
+                          <button onClick={() => setOpenMemos(m => ({ ...m, [memo.id]: !open }))}
+                            className="flex items-start gap-1.5 text-left w-full">
+                            <span className={`text-slate-400 mt-0.5 transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
+                            <span className="text-sm font-medium text-slate-700 flex-1">{title}</span>
+                          </button>
+                          {open && <p className="text-sm text-slate-600 whitespace-pre-wrap mt-1 ml-5 pl-2 border-l-2 border-slate-200">{body}</p>}
+                        </div>
+                      )
+                    })()}
                   </div>
                 ))}
               </div>
               <div className="flex gap-2">
-                <input className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400"
-                  placeholder="메모 추가..." value={memoText}
+                <textarea className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400 resize-none"
+                  rows={1} placeholder="메모 추가… (첫 줄=제목, 줄바꿈은 Shift+Enter → 토글 접기)" value={memoText}
                   onChange={e => setMemoText(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAddMemo()} />
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddMemo() } }} />
                 <button onClick={handleAddMemo}
                   className="bg-purple-500 text-white px-3 rounded-lg text-sm hover:bg-purple-600 transition-colors">
                   추가
