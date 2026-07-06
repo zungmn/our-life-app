@@ -60,7 +60,6 @@ export default function ExpensesPage() {
   const [yearItemsRaw, setYearItemsRaw] = useState<CalItem[]>([])
   const [allItems, setAllItems] = useState<CalItem[]>([])
   const [ymEdit, setYmEdit] = useState(false)
-  const [selDay, setSelDay] = useState<string | null>(null) // 캘린더에서 선택한 날짜 (세부 항목 패널)
   // 잔금 현황 (매달 리셋 X, 항상 유지) — Supabase(app_state)에 저장하여 기기 간 공유
   const [balances, setBalances] = useState<Record<string, number>>({})
   useEffect(() => {
@@ -649,10 +648,9 @@ export default function ExpensesPage() {
               const shown = items.slice(0, 6)
               const hiddenCount = items.length - shown.length
               const holiday = holidays[ds]
-              const isSel = selDay === ds
               return (
-                <div key={ds} onClick={() => setSelDay(ds)}
-                  className={`border-b border-r border-slate-50 min-h-[110px] p-1 cursor-pointer hover:bg-slate-50/70 transition-colors ${isLastRow ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''} ${isSel ? 'ring-2 ring-inset ring-blue-300 bg-blue-50/40' : ''}`}>
+                <div key={ds} onClick={() => openAdd(ds)}
+                  className={`border-b border-r border-slate-50 min-h-[110px] p-1 cursor-pointer hover:bg-slate-50/70 transition-colors ${isLastRow ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
                   <div className="flex items-center gap-1 mb-1">
                     <div className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-blue-500 text-white' : !inMonth ? (holiday ? 'text-red-300' : 'text-slate-300') : (holiday || dow === 0) ? 'text-red-500' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
                     {holiday && inMonth && <span className="text-xs text-red-400 truncate">{holiday}</span>}
@@ -681,45 +679,6 @@ export default function ExpensesPage() {
             })}
           </div>
         </div>
-
-        {/* 선택한 날짜 세부 항목 */}
-        {selDay && (() => {
-          const dayItems = monthItems.filter(it => it.date === selDay).sort((a, b) => b.amount - a.amount)
-          const rev = viewer === 'eddy' ? (revenueByDay[selDay] || 0) : 0
-          return (
-            <div className="card p-4 mt-3">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-slate-800 text-base">
-                  {format(new Date(selDay), 'M월 d일 (EEEE)', { locale: ko })}
-                </h3>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => openAdd(selDay)} className="text-sm bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition-colors">+ 이 날 추가</button>
-                  <button onClick={() => setSelDay(null)}><X size={18} className="text-slate-400" /></button>
-                </div>
-              </div>
-              {rev > 0 && (
-                <div className="flex items-center justify-between text-sm px-2 py-1.5 rounded bg-green-100 text-green-700 font-medium mb-1">
-                  <span>매출</span><span>+{rev.toLocaleString()}원</span>
-                </div>
-              )}
-              {dayItems.length === 0 && rev === 0 ? (
-                <p className="text-sm text-slate-400 py-2">이 날 기록이 없어요</p>
-              ) : (
-                <div className="space-y-1">
-                  {dayItems.map(it => (
-                    <div key={it.id}
-                      onClick={() => it.source === 'tx' ? openEdit(it.tx!) : openEditClinic(it.cf!)}
-                      className={`flex items-center gap-2 text-sm px-2 py-1.5 rounded cursor-pointer ${itemColor(it)}`}>
-                      <span className="flex-1 truncate">{it.memo}</span>
-                      <span className="text-xs opacity-70">{it.category}</span>
-                      <span className="font-medium flex-shrink-0">{it.type === 'income' ? '+' : '-'}{it.amount.toLocaleString()}원</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )
-        })()}
       </>)}
 
       {/* Stats */}
