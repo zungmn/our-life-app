@@ -160,3 +160,8 @@ ALTER TABLE balance_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "balance_logs all" ON balance_logs;
 CREATE POLICY "balance_logs all" ON balance_logs FOR ALL USING (true) WITH CHECK (true);
 GRANT ALL ON TABLE balance_logs TO anon, authenticated;
+
+-- ===== 구글 캘린더 양방향 동기화 =====
+ALTER TABLE events ADD COLUMN IF NOT EXISTS google_id text;
+CREATE INDEX IF NOT EXISTS events_google_id_idx ON events(google_id);
+-- 토큰은 app_state('google_auth')에 저장됨 (app_state 테이블 필요)

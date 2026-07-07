@@ -52,6 +52,23 @@ export default function CalendarPage() {
   const [uploading, setUploading] = useState(false)
   const [dragId, setDragId] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
+
+  const runGoogleSync = useCallback(async () => {
+    setSyncing(true); setSyncMsg(null)
+    try {
+      const res = await fetch('/api/google/sync', { cache: 'no-store' })
+      const j = await res.json()
+      if (j.error) {
+        setSyncMsg(j.error === 'not_connected' ? '먼저 구글 캘린더를 연결하세요.' : '동기화 실패: ' + (j.message || j.error))
+      } else {
+        setSyncMsg(`동기화 완료 · 보냄 ${j.pushed}, 새로받음 ${j.pulledNew}, 수정 ${j.pulledUpd}, 삭제 ${j.deleted}`)
+        await fetchEvents()
+      }
+    } catch (e) { setSyncMsg('동기화 오류: ' + String(e)) }
+    setSyncing(false)
+  }, [])
 
   const downloadPhoto = async (url: string) => {
     try {
@@ -84,6 +101,14 @@ export default function CalendarPage() {
   }, [currentDate])
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
+
+  // 구글 연결 콜백 후 안내 + 자동 1회 동기화
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get('google')
+    if (p === 'connected') { setSyncMsg('구글 캘린더 연결됨! 동기화를 시작합니다…'); runGoogleSync() }
+    else if (p === 'error') setSyncMsg('구글 연결에 실패했어요. 다시 시도해주세요.')
+    if (p) window.history.replaceState({}, '', '/calendar')
+  }, [runGoogleSync])
 
   const dayEvents = (date: Date) => {
     const ds = format(date, 'yyyy-MM-dd')
@@ -203,6 +228,17 @@ export default function CalendarPage() {
 
       {tab === 'events' && (
       <>
+      {/* 구글 캘린더 연동 */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <a href="/api/google/auth"
+          className="text-sm px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">🔗 구글 캘린더 연결</a>
+        <button onClick={runGoogleSync} disabled={syncing}
+          className="text-sm px-3 py-1.5 rounded-lg bg-slate-700 text-white hover:bg-slate-800 transition-colors disabled:opacity-50">
+          {syncing ? '동기화 중…' : '🔄 지금 동기화'}
+        </button>
+        {syncMsg && <span className="text-xs text-slate-500">{syncMsg}</span>}
+      </div>
+
       {/* Month header */}
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => setCurrentDate(new Date())}

@@ -7,7 +7,7 @@ export function middleware(req: NextRequest) {
   const secret = process.env.APP_SESSION_SECRET
   const { pathname } = req.nextUrl
   // 위젯 API(/api/widget)는 자체 WIDGET_KEY 토큰으로 보호되므로 로그인 게이트에서 제외
-  const isPublic = pathname === '/login' || pathname.startsWith('/api/login') || pathname.startsWith('/api/logout') || pathname.startsWith('/api/widget') || pathname.startsWith('/api/ics')
+  const isPublic = pathname === '/login' || pathname.startsWith('/api/login') || pathname.startsWith('/api/logout') || pathname.startsWith('/api/widget') || pathname.startsWith('/api/ics') || pathname.startsWith('/api/google')
 
   let res: NextResponse
   if (!secret) {

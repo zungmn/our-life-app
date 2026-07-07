@@ -15,6 +15,7 @@ export type Event = {
   note?: string
   file_url?: string
   photos?: string[]
+  google_id?: string
   created_at: string
 }
 
