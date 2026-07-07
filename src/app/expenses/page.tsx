@@ -81,13 +81,34 @@ export default function ExpensesPage() {
     setBalances(nb)
     await supabase.from('app_state').upsert({ key: 'budget_balances', value: nb })
   }
+  // 잔금 변경 이력 (감사 로그)
+  type BalLog = { id: string; item_key: string; label: string; delta: number; before_val: number; after_val: number; unit: string; viewer: string; note?: string; created_at: string }
+  const [balLogs, setBalLogs] = useState<BalLog[]>([])
+  const [showBalLog, setShowBalLog] = useState(false)
+  const fetchBalLogs = useCallback(async () => {
+    const { data } = await supabase.from('balance_logs').select('*').order('created_at', { ascending: false }).limit(200)
+    setBalLogs((data || []) as BalLog[])
+  }, [])
+  const applyBalance = async (k: string, label: string, unit: string, delta: number, note?: string) => {
+    const before = balances[k] || 0
+    const after = Math.round((before + delta) * 100) / 100
+    await setBalance(k, after)
+    await supabase.from('balance_logs').insert({ item_key: k, label, delta, before_val: before, after_val: after, unit, viewer, note: note || null })
+    if (showBalLog) fetchBalLogs()
+  }
   const adjustBalance = (k: string, label: string, unit: string) => {
     const ex = unit === '돈' ? '0.7' : '50000'
     const s = prompt(`${label} 증감액 입력 (더하기 예: ${ex}, 빼기 예: -${ex})`)
     if (s == null) return
     const d = parseFloat(s.replace(/[^0-9.\-]/g, '') || '0')
-    if (d) setBalance(k, Math.round(((balances[k] || 0) + d) * 100) / 100)
+    if (d) applyBalance(k, label, unit, d)
   }
+  const undoBalanceLog = async (log: BalLog) => {
+    if (!confirm(`이 변경을 되돌릴까요?\n${log.label}: ${log.after_val.toLocaleString()} → ${log.before_val.toLocaleString()}${log.unit}`)) return
+    // before_val 로 복원 (역방향 delta 를 다시 기록)
+    await applyBalance(log.item_key, log.label, log.unit, log.before_val - (balances[log.item_key] || 0), `되돌리기(${format(new Date(log.created_at), 'M.d HH:mm')} 변경 취소)`)
+  }
+  const openBalLog = () => { setShowBalLog(true); fetchBalLogs() }
   const BALANCE_ITEMS: [string, string, string][] = [['exposed', '노출 현금', '원'], ['hidden', '비노출 현금', '원'], ['safe', '금고', '원'], ['voucher', '상품권', '원'], ['pharma', '제약', '원'], ['gold', '골드바', '돈']]
   const [monthRevenue, setMonthRevenue] = useState('')
   const [form, setForm] = useState({
@@ -616,7 +637,10 @@ export default function ExpensesPage() {
         </div>
         {viewer === 'eddy' && (
           <div className="card p-3 w-full md:w-[300px] flex-shrink-0">
-            <p className="text-base text-slate-500 mb-1.5 font-semibold">💰 잔금 현황</p>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-base text-slate-500 font-semibold">💰 잔금 현황</p>
+              <button onClick={openBalLog} className="text-xs text-slate-400 hover:text-slate-600 transition-colors">📜 기록</button>
+            </div>
             <div className="space-y-1.5">
               {BALANCE_ITEMS.map(([k, l, unit]) => (
                 <div key={k} className="flex items-center gap-1">
@@ -630,6 +654,41 @@ export default function ExpensesPage() {
           </div>
         )}
       </div>
+
+      {/* 잔금 변경 이력 모달 */}
+      {showBalLog && (
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowBalLog(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-800 text-lg">📜 잔금 변경 이력</h3>
+              <button onClick={() => setShowBalLog(false)}><X size={20} className="text-slate-400" /></button>
+            </div>
+            <p className="text-xs text-slate-400 mb-3">언제·무엇을·얼마나 바꿨는지 기록됩니다. 실수한 변경은 되돌리기로 복원할 수 있어요.</p>
+            {balLogs.length === 0 ? (
+              <p className="text-sm text-slate-400 py-6 text-center">아직 변경 기록이 없어요</p>
+            ) : (
+              <div className="space-y-1.5">
+                {balLogs.map(log => (
+                  <div key={log.id} className="flex items-center gap-2 text-sm border border-slate-100 rounded-lg px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium text-slate-700">{log.label}</span>
+                        <span className={`font-medium ${log.delta > 0 ? 'text-green-600' : 'text-red-500'}`}>{log.delta > 0 ? '+' : ''}{log.delta.toLocaleString()}{log.unit}</span>
+                        <span className="text-slate-400">→ {log.after_val.toLocaleString()}{log.unit}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        {format(new Date(log.created_at), 'yyyy.M.d (EEE) HH:mm', { locale: ko })} · {log.viewer === 'eddy' ? 'Eddy' : 'Judy'}
+                        {log.note ? ` · ${log.note}` : ''}
+                      </p>
+                    </div>
+                    <button onClick={() => undoBalanceLog(log)} className="text-xs px-2 py-1 rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors flex-shrink-0">되돌리기</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Calendar grid */}
       <div className="card overflow-hidden">

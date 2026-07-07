@@ -142,3 +142,21 @@ ALTER TABLE app_state ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "app_state all" ON app_state;
 CREATE POLICY "app_state all" ON app_state FOR ALL USING (true) WITH CHECK (true);
 GRANT ALL ON TABLE app_state TO anon, authenticated;
+
+-- ===== 잔금 현황 변경 이력 (감사 로그 + 되돌리기) =====
+CREATE TABLE IF NOT EXISTS balance_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_key text NOT NULL,
+  label text,
+  delta numeric,
+  before_val numeric,
+  after_val numeric,
+  unit text,
+  viewer text,
+  note text,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE balance_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "balance_logs all" ON balance_logs;
+CREATE POLICY "balance_logs all" ON balance_logs FOR ALL USING (true) WITH CHECK (true);
+GRANT ALL ON TABLE balance_logs TO anon, authenticated;
