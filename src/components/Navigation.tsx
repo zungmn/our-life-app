@@ -2,15 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, BookOpen, PiggyBank, NotebookPen, Star, Home, CheckSquare, FolderKanban, Archive } from 'lucide-react'
+import { BookOpen, PiggyBank, NotebookPen, Star, Cake, Archive } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 const sharedItems = [
-  { href: '/', icon: Home, label: 'Home' },
-  { href: '/todos', icon: CheckSquare, label: 'Todo' },
-  { href: '/projects', icon: FolderKanban, label: 'Project' },
-  { href: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { href: '/expenses', icon: PiggyBank, label: 'Budget' },
+  { href: '/birthdays', icon: Cake, label: '기념일' },
 ]
 
 const eddyOnlyItems = [
