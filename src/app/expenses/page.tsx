@@ -116,7 +116,12 @@ export default function ExpensesPage() {
     memo: '', amount: '', scope: 'hospital' as BudgetScope, is_saving: false, category: '직원',
   })
 
+  // 정적 프리렌더 HTML에는 '빌드한 날짜'가 박히고 하이드레이션이 className을 고치지 않는다.
+  // → 오늘 표시는 마운트 후(클라이언트)에만 계산해서 항상 실제 오늘을 따라가게 한다.
+  const [mounted, setMounted] = useState(false)
   useEffect(() => {
+    setMounted(true)
+    setCurrentDate(new Date())
     setViewer((localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy')
     const handler = () => setViewer((localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy')
     window.addEventListener('viewer-change', handler)
@@ -711,7 +716,7 @@ export default function ExpensesPage() {
                 <div key={ds} onClick={() => openAdd(ds)}
                   className={`border-b border-r border-slate-50 min-h-[110px] p-1 cursor-pointer hover:bg-slate-50/70 transition-colors ${isLastRow ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
                   <div className="flex items-center gap-1 mb-1">
-                    <div className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-blue-500 text-white' : !inMonth ? (holiday ? 'text-red-300' : 'text-slate-300') : (holiday || dow === 0) ? 'text-red-500' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
+                    <div className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${mounted && isToday(day) ? 'bg-blue-500 text-white' : !inMonth ? (holiday ? 'text-red-300' : 'text-slate-300') : (holiday || dow === 0) ? 'text-red-500' : dow === 6 ? 'text-blue-400' : 'text-slate-700'}`}>{format(day, 'd')}</div>
                     {holiday && inMonth && <span className="text-xs text-red-400 truncate">{holiday}</span>}
                   </div>
                   <div className="space-y-0.5">

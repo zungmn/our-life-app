@@ -80,6 +80,10 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
     }
   }
 
+  // 정적 프리렌더 HTML에는 빌드 날짜가 박히므로, 오늘 표시는 마운트 후에만 계산
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true); setCalMonth(new Date()) }, [])
+
   useEffect(() => { fetchAll() }, [])
 
   const openEdit = (bd: Birthday) => {
@@ -284,7 +288,7 @@ export default function BirthdaysPage({ embedded = false }: { embedded?: boolean
                 const dow = cur.getDay()
                 const isLast = i >= (weeks - 1) * 7
                 const today = new Date()
-                const isToday = cur.getFullYear() === today.getFullYear() && cur.getMonth() === today.getMonth() && cur.getDate() === today.getDate()
+                const isToday = mounted && cur.getFullYear() === today.getFullYear() && cur.getMonth() === today.getMonth() && cur.getDate() === today.getDate()
                 return (
                   <div key={i} className={`min-h-[100px] p-1 border-b border-r border-slate-50 ${isLast ? 'border-b-0' : ''} ${!inMonth ? 'bg-slate-50/40' : ''}`}>
                     <div className="flex items-center gap-1 mb-0.5">
