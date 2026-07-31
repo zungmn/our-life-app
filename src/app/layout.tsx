@@ -24,7 +24,7 @@ export default function RootLayout({
     <html lang="ko" className="h-full">
       <body className="min-h-full">
         <Navigation />
-        <main className="md:ml-56 pb-16 md:pb-0 min-h-screen">
+        <main className="md:ml-[146px] pb-16 md:pb-0 min-h-screen">
           {children}
         </main>
       </body>

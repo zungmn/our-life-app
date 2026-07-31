@@ -50,8 +50,8 @@ export default function Navigation() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-56 min-h-screen bg-white border-r border-slate-200 fixed left-0 top-0 z-40">
-        <div className="p-5 border-b border-slate-100">
+      <aside className="hidden md:flex flex-col w-[146px] min-h-screen bg-white border-r border-slate-200 fixed left-0 top-0 z-40">
+        <div className="p-3 border-b border-slate-100">
           <h1 className="text-lg font-bold text-slate-800">🏠 우리 집</h1>
           <p className="text-xs text-slate-400 mt-0.5">Eddy & Judy</p>
         </div>
