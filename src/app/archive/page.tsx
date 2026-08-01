@@ -249,13 +249,13 @@ export default function ArchivePage() {
             ) : giftMatches.length === 0 ? (
               <div className="h-full min-h-[80px] flex items-center justify-center text-xs text-slate-400">&apos;{giftQuery}&apos; 님이 준 축의금 기록이 없어요.</div>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(272px,1fr))] gap-1.5">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(380px,1fr))] gap-1.5">
                 {giftMatches.map(g => (
                   <div key={g.id} onDoubleClick={() => openEditGift(g)}
-                    className="flex items-center gap-1.5 bg-rose-50 rounded-lg px-2 py-1 text-[11px] whitespace-nowrap cursor-pointer">
+                    className="flex items-center gap-2 bg-rose-50 rounded-lg px-2.5 py-1.5 text-sm whitespace-nowrap cursor-pointer">
                     <span className="font-semibold text-slate-800">{g.name}</span>
-                    {g.method && <span className="text-slate-400">{g.method}</span>}
-                    {g.date && <span className="text-slate-400">{g.date}</span>}
+                    {g.method && <span className="text-slate-400 text-xs">{g.method}</span>}
+                    {g.date && <span className="text-slate-400 text-xs">{g.date}</span>}
                     <span className="font-bold text-rose-600 ml-auto pl-1">{(g.amount || 0).toLocaleString()}원</span>
                   </div>
                 ))}
@@ -294,12 +294,12 @@ export default function ArchivePage() {
             const attach = (item.photos?.length || 0) + (item.file_url ? 1 : 0)
             return (
               <button key={item.id} onDoubleClick={() => openEdit(item)} onClick={() => setSelected(item)}
-                className="card px-2.5 py-1.5 text-left cursor-pointer hover:shadow-md transition-shadow flex flex-col">
+                className="card px-2.5 pt-1.5 pb-1 text-left cursor-pointer hover:shadow-md transition-shadow flex flex-col">
                 <div className="flex items-center justify-between gap-1 text-base text-slate-400">
                   <span className="whitespace-nowrap">{item.item_date ? format(new Date(item.item_date), 'yy.M.d') : '-'}</span>
                   {attach > 0 && <span className="text-teal-500 flex-shrink-0">📎{attach}</span>}
                 </div>
-                <span className="text-base font-semibold text-slate-800 leading-tight line-clamp-2 min-h-[2.6em] mt-0.5">{item.title}</span>
+                <span className="text-base font-semibold text-slate-800 leading-tight line-clamp-2 min-h-[2.4em]">{item.title}</span>
               </button>
             )
           })}
