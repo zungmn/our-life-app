@@ -22,9 +22,13 @@ export async function GET(req: Request) {
     })
     if (!res.ok) return NextResponse.json({ error: `OS 응답 오류 (${res.status})` }, { status: 502 })
     const data = await res.json()
-    const total = Number(data.total ?? data.revenue ?? 0)
+    const daySum = Number(data.total ?? data.revenue ?? 0)
+    // 대시보드 "이번 달 매출"과 동일한 월 집계값. OS가 monthTotal을 주면 그걸,
+    // 아직 안 주면(구버전) 일별 합계로 폴백.
+    const monthTotal = Number(data.monthTotal ?? daySum)
     const days = Array.isArray(data.days) ? data.days : [] // [{ date:'YYYY-MM-DD', total:number }]
-    return NextResponse.json({ total, days })
+    // 월 조회면 대시보드 월매출(monthTotal)을, 일 조회면 그날 매출을 total로 반환
+    return NextResponse.json({ total: month ? monthTotal : daySum, monthTotal, days })
   } catch (e) {
     return NextResponse.json({ error: '치과 OS 연결 실패: ' + String(e) }, { status: 502 })
   }
