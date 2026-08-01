@@ -50,6 +50,13 @@ export default function ArchivePage() {
   }
   useEffect(() => { if (filterCat === '청첩장') fetchGifts() }, [filterCat])
 
+  // 청첩장 연도 목록이 로드되면, 선택 연도가 목록에 없을 때 최신 연도로 맞춰준다.
+  // (기본값 '작년'이 목록에 없으면 select 표시는 최신 연도인데 실제 값은 작년이라 다운로드가 빈 결과가 되던 버그 수정)
+  useEffect(() => {
+    const yrs = [...new Set(items.filter(i => i.category === '청첩장' && i.item_date).map(i => new Date(i.item_date!).getFullYear()))]
+    if (yrs.length && !yrs.includes(inviteYear)) setInviteYear(Math.max(...yrs))
+  }, [items]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const openAddGift = () => { setEditGift(null); setGiftForm({ name: '', amount: '', date: '', method: '', note: '' }); setShowGiftModal(true) }
   const openEditGift = (g: WeddingGift) => {
     setEditGift(g)
