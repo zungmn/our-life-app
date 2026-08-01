@@ -227,19 +227,19 @@ export default function ArchivePage() {
       {/* 청첩장: 축의금 조회 · 검색결과(가운데, 4칸 스크롤) · 일괄 다운로드 — 세 박스 높이 고정·동일 */}
       {filterCat === '청첩장' && (
         <div className="flex flex-col md:flex-row gap-3 mb-4">
-          {/* 축의금 조회 (검색만) */}
-          <div className="card p-3 w-full md:w-[260px] flex-shrink-0 md:h-[128px] flex flex-col">
-            <div className="flex items-center justify-between mb-2 gap-2">
-              <h3 className="font-semibold text-slate-800 text-sm">💰 축의금 조회</h3>
-              <button onClick={openAddGift} className="text-xs bg-rose-500 text-white px-2.5 py-1 rounded-lg hover:bg-rose-600 transition-colors flex-shrink-0">+ 축의금</button>
+          {/* 축의금 조회 (검색만) — 내용을 키워 아래 여백 제거, 글씨는 다운로드와 동일 크기 */}
+          <div className="card p-3 w-full md:w-[260px] flex-shrink-0 md:h-[128px] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-semibold text-slate-800 text-base">💰 축의금 조회</h3>
+              <button onClick={openAddGift} className="text-sm bg-rose-500 text-white px-3 py-1 rounded-lg hover:bg-rose-600 transition-colors flex-shrink-0">+ 축의금</button>
             </div>
             <input value={giftQuery} onChange={e => setGiftQuery(e.target.value)} placeholder="이름 검색 (예: 손기진)"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400 mb-1.5" />
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:border-rose-400" />
             {gifts.length === 0 ? (
               <button onClick={async () => { if (!confirm('노션 축의금 목록을 불러올까요?')) return; const r = await fetch('/api/import-gifts', { method: 'POST' }); const j = await r.json(); alert(j.message || j.error || '완료'); fetchGifts() }}
-                className="text-xs bg-slate-700 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors self-start">노션 데이터 불러오기</button>
+                className="text-sm bg-slate-700 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors self-start">노션 데이터 불러오기</button>
             ) : (
-              <p className="text-[11px] text-slate-400 whitespace-nowrap">총 {gifts.length}건 · 합계 {gifts.reduce((s, g) => s + (g.amount || 0), 0).toLocaleString()}원</p>
+              <p className="text-sm text-slate-400 whitespace-nowrap">총 {gifts.length}건 · 합계 {gifts.reduce((s, g) => s + (g.amount || 0), 0).toLocaleString()}원</p>
             )}
           </div>
           {/* 검색 결과 (가운데, 4칸 · 넘치면 세로 스크롤 · 높이 고정) */}
@@ -262,18 +262,20 @@ export default function ArchivePage() {
               </div>
             )}
           </div>
-          {/* 일괄 다운로드 (오른쪽 끝, 같은 높이) */}
-          <div className="card p-3 w-full md:w-auto md:min-w-[210px] flex-shrink-0 md:h-[128px]">
-            <p className="text-sm text-slate-700 font-medium mb-0.5">📥 청첩장 일괄 다운로드</p>
-            <p className="text-[11px] text-slate-400 mb-2">파일명: 연월일(yymmdd)</p>
+          {/* 일괄 다운로드 (오른쪽 끝) — 내용을 키워 아래 여백 제거, 글씨는 축의금 조회와 동일 크기 */}
+          <div className="card p-3 w-full md:w-auto md:min-w-[210px] flex-shrink-0 md:h-[128px] flex flex-col justify-between">
+            <div>
+              <p className="text-base text-slate-700 font-medium">📥 청첩장 일괄 다운로드</p>
+              <p className="text-sm text-slate-400 mt-0.5">파일명: 연월일(yymmdd)</p>
+            </div>
             <div className="flex items-center gap-2">
               <select value={inviteYear} onChange={e => setInviteYear(Number(e.target.value))}
-                className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-teal-400">
+                className="border border-slate-200 rounded-lg px-3 py-2 text-base focus:outline-none focus:border-teal-400">
                 {(inviteYears.length ? inviteYears : [inviteYear]).map(y => <option key={y} value={y}>{y}년</option>)}
               </select>
               <button onClick={handleDownloadInvites} disabled={downloading}
-                className="flex items-center gap-1 bg-teal-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-teal-600 disabled:opacity-50 transition-colors flex-shrink-0">
-                <Download size={15} /> {downloading ? '중...' : '다운로드'}
+                className="flex items-center gap-1 bg-teal-500 text-white px-4 py-2 rounded-lg text-base hover:bg-teal-600 disabled:opacity-50 transition-colors flex-shrink-0">
+                <Download size={16} /> {downloading ? '중...' : '다운로드'}
               </button>
             </div>
           </div>
@@ -289,17 +291,17 @@ export default function ArchivePage() {
         </div>
       ) : filterCat === '청첩장' ? (
         // 청첩장: 한 줄 8개, "날짜 · 첨부수 · 이름"(모두 16px, 이름 최대 2줄로 정렬)
-        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 items-start">
           {displayed.map(item => {
             const attach = (item.photos?.length || 0) + (item.file_url ? 1 : 0)
             return (
               <button key={item.id} onDoubleClick={() => openEdit(item)} onClick={() => setSelected(item)}
-                className="card px-2.5 py-1 text-left cursor-pointer hover:shadow-md transition-shadow flex flex-col h-[60px] overflow-hidden">
-                <div className="flex items-center justify-between gap-1 text-xs text-slate-400">
+                className="card px-2.5 py-1.5 text-left cursor-pointer hover:shadow-md transition-shadow flex flex-col gap-0.5">
+                <div className="flex items-center justify-between gap-1 text-base text-slate-400">
                   <span className="whitespace-nowrap">{item.item_date ? format(new Date(item.item_date), 'yy.M.d') : '-'}</span>
                   {attach > 0 && <span className="text-teal-500 flex-shrink-0">📎{attach}</span>}
                 </div>
-                <span className="text-[15px] font-semibold text-slate-800 leading-tight line-clamp-2 flex-1">{item.title}</span>
+                <span className="text-base font-semibold text-slate-800 leading-tight line-clamp-2">{item.title}</span>
               </button>
             )
           })}
