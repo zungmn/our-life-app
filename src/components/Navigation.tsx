@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, PiggyBank, NotebookPen, Star, Cake, Archive } from 'lucide-react'
+import { BookOpen, PiggyBank, NotebookPen, Cake, Archive } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 const sharedItems = [
@@ -13,7 +13,6 @@ const sharedItems = [
 const eddyOnlyItems = [
   { href: '/books', icon: BookOpen, label: '독서' },
   { href: '/journal', icon: NotebookPen, label: '일기' },
-  { href: '/life-notes', icon: Star, label: '기록' },
   { href: '/archive', icon: Archive, label: '자료실' },
 ]
 

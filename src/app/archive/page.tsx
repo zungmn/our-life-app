@@ -249,7 +249,7 @@ export default function ArchivePage() {
             ) : giftMatches.length === 0 ? (
               <div className="h-full min-h-[80px] flex items-center justify-center text-xs text-slate-400">&apos;{giftQuery}&apos; 님이 준 축의금 기록이 없어요.</div>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(380px,1fr))] gap-1.5">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-1.5">
                 {giftMatches.map(g => (
                   <div key={g.id} onDoubleClick={() => openEditGift(g)}
                     className="flex items-center gap-2 bg-rose-50 rounded-lg px-2.5 py-1.5 whitespace-nowrap cursor-pointer">
