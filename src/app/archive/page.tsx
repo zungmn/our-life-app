@@ -199,75 +199,79 @@ export default function ArchivePage() {
 
   return (
     <div className="p-6 md:p-10 max-w-full mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">📁 자료실</h2>
-          <p className="text-xs text-slate-400 mt-0.5">증명사진, 기록증, 중요 자료 보관</p>
+      <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex-shrink-0">
+            <h2 className="text-xl font-bold text-slate-800">📁 자료실</h2>
+            <p className="text-xs text-slate-400 mt-0.5">증명사진, 기록증, 중요 자료 보관</p>
+          </div>
+          {/* 중간분류 탭 (제목 옆으로) */}
+          <div className="flex gap-1.5 flex-wrap">
+            {cats.map(c => (
+              <button key={c} onClick={() => setFilterCat(c)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterCat === c ? 'bg-teal-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
+                {c}
+              </button>
+            ))}
+          </div>
         </div>
         {filterCat !== '계정' && (
           <button onClick={openAdd}
-            className="flex items-center gap-1 bg-teal-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-teal-600 transition-colors">
+            className="flex items-center gap-1 bg-teal-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-teal-600 transition-colors flex-shrink-0">
             <Plus size={16} /> 추가
           </button>
         )}
       </div>
 
-      <div className="flex gap-2 flex-wrap mb-4">
-        {cats.map(c => (
-          <button key={c} onClick={() => setFilterCat(c)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterCat === c ? 'bg-teal-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
-            {c}
-          </button>
-        ))}
-      </div>
-
-      {/* 청첩장: 연도별 일괄 다운로드 */}
+      {/* 청첩장: 축의금 조회(좁게) + 일괄 다운로드(옆에) */}
       {filterCat === '청첩장' && (
-        <div className="card p-3 mb-4 flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-slate-600 flex-1">청첩장 일괄 다운로드 (파일명: 월일 mmdd)</span>
-          <select value={inviteYear} onChange={e => setInviteYear(Number(e.target.value))}
-            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-teal-400">
-            {(inviteYears.length ? inviteYears : [inviteYear]).map(y => <option key={y} value={y}>{y}년</option>)}
-          </select>
-          <button onClick={handleDownloadInvites} disabled={downloading}
-            className="flex items-center gap-1 bg-teal-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-teal-600 disabled:opacity-50 transition-colors">
-            <Download size={15} /> {downloading ? '다운로드 중...' : '다운로드'}
-          </button>
-        </div>
-      )}
-
-      {/* 청첩장 → 축의금 조회/기록 */}
-      {filterCat === '청첩장' && (
-        <div className="card p-4 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-slate-800 text-sm">💰 축의금 조회 (내가 받은 내역)</h3>
-            <button onClick={openAddGift} className="text-xs bg-rose-500 text-white px-3 py-1.5 rounded-lg hover:bg-rose-600 transition-colors">+ 축의금 추가</button>
+        <div className="flex flex-col md:flex-row gap-3 mb-4 items-start">
+          {/* 축의금 조회 */}
+          <div className="card p-3 w-full md:w-[460px] flex-shrink-0">
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <h3 className="font-semibold text-slate-800 text-sm">💰 축의금 조회 (내가 받은 내역)</h3>
+              <button onClick={openAddGift} className="text-xs bg-rose-500 text-white px-2.5 py-1 rounded-lg hover:bg-rose-600 transition-colors flex-shrink-0">+ 축의금</button>
+            </div>
+            <input value={giftQuery} onChange={e => setGiftQuery(e.target.value)} placeholder="이름 검색 (예: 손기진)"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400 mb-2" />
+            {gifts.length === 0 ? (
+              <div className="text-center py-2">
+                <p className="text-xs text-slate-400 mb-2">축의금 데이터가 없습니다.</p>
+                <button onClick={async () => { if (!confirm('노션 축의금 목록을 불러올까요?')) return; const r = await fetch('/api/import-gifts', { method: 'POST' }); const j = await r.json(); alert(j.message || j.error || '완료'); fetchGifts() }}
+                  className="text-xs bg-slate-700 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors">노션 데이터 불러오기</button>
+              </div>
+            ) : giftQuery.trim() === '' ? (
+              <p className="text-[11px] text-slate-400">이름을 입력하면 그 사람이 준 축의금을 찾아줍니다. (총 {gifts.length}건 · 합계 {gifts.reduce((s, g) => s + (g.amount || 0), 0).toLocaleString()}원)</p>
+            ) : giftMatches.length === 0 ? (
+              <p className="text-xs text-slate-400">&apos;{giftQuery}&apos; 님이 준 축의금 기록이 없어요.</p>
+            ) : (
+              <div className="space-y-1">
+                {giftMatches.map(g => (
+                  <div key={g.id} onDoubleClick={() => openEditGift(g)} className="flex items-center gap-2 text-sm bg-rose-50 rounded-lg px-3 py-2 cursor-pointer">
+                    <span className="font-medium text-slate-800 flex-1">{g.name}</span>
+                    {g.method && <span className="text-[10px] text-slate-400">{g.method}</span>}
+                    {g.date && <span className="text-[10px] text-slate-400">{g.date}</span>}
+                    <span className="font-bold text-rose-600">{(g.amount || 0).toLocaleString()}원</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <p className="text-[11px] text-slate-400 mb-2">청첩장을 준 사람 이름을 입력하면, 그 사람이 예전에 나에게 준 축의금을 찾아줍니다.</p>
-          <input value={giftQuery} onChange={e => setGiftQuery(e.target.value)} placeholder="이름 검색 (예: 손기진)"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400 mb-2" />
-          {gifts.length === 0 ? (
-            <div className="text-center py-3">
-              <p className="text-xs text-slate-400 mb-2">축의금 데이터가 없습니다.</p>
-              <button onClick={async () => { if (!confirm('노션 축의금 목록을 불러올까요?')) return; const r = await fetch('/api/import-gifts', { method: 'POST' }); const j = await r.json(); alert(j.message || j.error || '완료'); fetchGifts() }}
-                className="text-xs bg-slate-700 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors">노션 데이터 불러오기</button>
+          {/* 일괄 다운로드 */}
+          <div className="card p-3 w-full md:w-auto md:min-w-[220px]">
+            <p className="text-sm text-slate-700 font-medium mb-0.5">📥 청첩장 일괄 다운로드</p>
+            <p className="text-[11px] text-slate-400 mb-2">파일명: 월일(mmdd)</p>
+            <div className="flex items-center gap-2">
+              <select value={inviteYear} onChange={e => setInviteYear(Number(e.target.value))}
+                className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-teal-400">
+                {(inviteYears.length ? inviteYears : [inviteYear]).map(y => <option key={y} value={y}>{y}년</option>)}
+              </select>
+              <button onClick={handleDownloadInvites} disabled={downloading}
+                className="flex items-center gap-1 bg-teal-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-teal-600 disabled:opacity-50 transition-colors flex-shrink-0">
+                <Download size={15} /> {downloading ? '중...' : '다운로드'}
+              </button>
             </div>
-          ) : giftQuery.trim() === '' ? (
-            <p className="text-xs text-slate-400">이름을 입력하면 검색됩니다. (총 {gifts.length}건 · 합계 {gifts.reduce((s, g) => s + (g.amount || 0), 0).toLocaleString()}원)</p>
-          ) : giftMatches.length === 0 ? (
-            <p className="text-xs text-slate-400">&apos;{giftQuery}&apos; 님이 준 축의금 기록이 없어요.</p>
-          ) : (
-            <div className="space-y-1">
-              {giftMatches.map(g => (
-                <div key={g.id} onDoubleClick={() => openEditGift(g)} className="flex items-center gap-2 text-sm bg-rose-50 rounded-lg px-3 py-2 cursor-pointer">
-                  <span className="font-medium text-slate-800 flex-1">{g.name}</span>
-                  {g.method && <span className="text-[10px] text-slate-400">{g.method}</span>}
-                  {g.date && <span className="text-[10px] text-slate-400">{g.date}</span>}
-                  <span className="font-bold text-rose-600">{(g.amount || 0).toLocaleString()}원</span>
-                </div>
-              ))}
-            </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -279,16 +283,21 @@ export default function ArchivePage() {
           <p className="text-sm">자료를 추가해보세요</p>
         </div>
       ) : filterCat === '청첩장' ? (
-        // 청첩장: 이름 + 날짜만 (사진 X)
-        <div className="space-y-1.5">
-          {displayed.map(item => (
-            <div key={item.id} onDoubleClick={() => openEdit(item)} onClick={() => setSelected(item)}
-              className="card px-3 py-2.5 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow">
-              <span className="font-semibold text-slate-800 text-sm flex-1 truncate">{item.title}</span>
-              {((item.photos?.length || 0) + (item.file_url ? 1 : 0)) > 0 && <span className="text-[10px] text-teal-500">📎 {(item.photos?.length || 0) + (item.file_url ? 1 : 0)}</span>}
-              <span className="text-xs text-slate-400">{item.item_date ? format(new Date(item.item_date), 'yyyy.M.d') : ''}</span>
-            </div>
-          ))}
+        // 청첩장: 한 줄 6개, "날짜 · 첨부수 · 이름"(이름 최대 2줄로 정렬)
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+          {displayed.map(item => {
+            const attach = (item.photos?.length || 0) + (item.file_url ? 1 : 0)
+            return (
+              <button key={item.id} onDoubleClick={() => openEdit(item)} onClick={() => setSelected(item)}
+                className="card px-2.5 py-1.5 text-left cursor-pointer hover:shadow-md transition-shadow flex flex-col">
+                <div className="flex items-center justify-between gap-1 text-[10px] text-slate-400">
+                  <span>{item.item_date ? format(new Date(item.item_date), 'yy.M.d') : '-'}</span>
+                  {attach > 0 && <span className="text-teal-500 flex-shrink-0">📎{attach}</span>}
+                </div>
+                <span className="text-xs font-semibold text-slate-800 leading-tight line-clamp-2 min-h-[2.1em] mt-0.5">{item.title}</span>
+              </button>
+            )
+          })}
         </div>
       ) : (
         <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
