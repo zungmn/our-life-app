@@ -224,11 +224,11 @@ export default function ArchivePage() {
         )}
       </div>
 
-      {/* 청첩장: 축의금 조회(260px) · 검색결과(가운데, 스크롤) · 일괄 다운로드(오른쪽) */}
+      {/* 청첩장: 축의금 조회 · 검색결과(가운데, 4칸 스크롤) · 일괄 다운로드 — 세 박스 높이 고정·동일 */}
       {filterCat === '청첩장' && (
-        <div className="flex flex-col md:flex-row gap-3 mb-4 md:items-stretch">
+        <div className="flex flex-col md:flex-row gap-3 mb-4">
           {/* 축의금 조회 (검색만) */}
-          <div className="card p-3 w-full md:w-[260px] flex-shrink-0">
+          <div className="card p-3 w-full md:w-[260px] flex-shrink-0 md:h-[128px] flex flex-col">
             <div className="flex items-center justify-between mb-2 gap-2">
               <h3 className="font-semibold text-slate-800 text-sm">💰 축의금 조회</h3>
               <button onClick={openAddGift} className="text-xs bg-rose-500 text-white px-2.5 py-1 rounded-lg hover:bg-rose-600 transition-colors flex-shrink-0">+ 축의금</button>
@@ -237,32 +237,33 @@ export default function ArchivePage() {
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400 mb-1.5" />
             {gifts.length === 0 ? (
               <button onClick={async () => { if (!confirm('노션 축의금 목록을 불러올까요?')) return; const r = await fetch('/api/import-gifts', { method: 'POST' }); const j = await r.json(); alert(j.message || j.error || '완료'); fetchGifts() }}
-                className="text-xs bg-slate-700 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors">노션 데이터 불러오기</button>
+                className="text-xs bg-slate-700 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors self-start">노션 데이터 불러오기</button>
             ) : (
-              <p className="text-[11px] text-slate-400">받은 사람 이름을 검색하세요. (총 {gifts.length}건 · 합계 {gifts.reduce((s, g) => s + (g.amount || 0), 0).toLocaleString()}원)</p>
+              <p className="text-[11px] text-slate-400 whitespace-nowrap">총 {gifts.length}건 · 합계 {gifts.reduce((s, g) => s + (g.amount || 0), 0).toLocaleString()}원</p>
             )}
           </div>
-          {/* 검색 결과 (가운데, 넘치면 스크롤) */}
-          <div className="card p-2 flex-1 min-w-0 overflow-y-auto max-h-[160px] md:max-h-none">
+          {/* 검색 결과 (가운데, 4칸 · 넘치면 세로 스크롤 · 높이 고정) */}
+          <div className="card p-2 flex-1 min-w-0 overflow-y-auto md:h-[128px]">
             {giftQuery.trim() === '' ? (
-              <div className="h-full min-h-[64px] flex items-center justify-center text-xs text-slate-300">이름을 검색하면 여기에 결과가 표시됩니다</div>
+              <div className="h-full min-h-[80px] flex items-center justify-center text-xs text-slate-300">이름을 검색하면 여기에 결과가 표시됩니다</div>
             ) : giftMatches.length === 0 ? (
-              <div className="h-full min-h-[64px] flex items-center justify-center text-xs text-slate-400">&apos;{giftQuery}&apos; 님이 준 축의금 기록이 없어요.</div>
+              <div className="h-full min-h-[80px] flex items-center justify-center text-xs text-slate-400">&apos;{giftQuery}&apos; 님이 준 축의금 기록이 없어요.</div>
             ) : (
-              <div className="space-y-1">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(272px,1fr))] gap-1.5">
                 {giftMatches.map(g => (
-                  <div key={g.id} onDoubleClick={() => openEditGift(g)} className="flex items-center gap-2 text-sm bg-rose-50 rounded-lg px-2.5 py-1.5 cursor-pointer">
-                    <span className="font-medium text-slate-800 flex-1 truncate">{g.name}</span>
-                    {g.method && <span className="text-[10px] text-slate-400 flex-shrink-0">{g.method}</span>}
-                    {g.date && <span className="text-[10px] text-slate-400 flex-shrink-0">{g.date}</span>}
-                    <span className="font-bold text-rose-600 flex-shrink-0">{(g.amount || 0).toLocaleString()}원</span>
+                  <div key={g.id} onDoubleClick={() => openEditGift(g)}
+                    className="flex items-center gap-1.5 bg-rose-50 rounded-lg px-2 py-1 text-[11px] whitespace-nowrap cursor-pointer">
+                    <span className="font-semibold text-slate-800">{g.name}</span>
+                    {g.method && <span className="text-slate-400">{g.method}</span>}
+                    {g.date && <span className="text-slate-400">{g.date}</span>}
+                    <span className="font-bold text-rose-600 ml-auto pl-1">{(g.amount || 0).toLocaleString()}원</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
-          {/* 일괄 다운로드 (오른쪽 끝) */}
-          <div className="card p-3 w-full md:w-auto md:min-w-[210px] flex-shrink-0 md:self-start">
+          {/* 일괄 다운로드 (오른쪽 끝, 같은 높이) */}
+          <div className="card p-3 w-full md:w-auto md:min-w-[210px] flex-shrink-0 md:h-[128px]">
             <p className="text-sm text-slate-700 font-medium mb-0.5">📥 청첩장 일괄 다운로드</p>
             <p className="text-[11px] text-slate-400 mb-2">파일명: 연월일(yymmdd)</p>
             <div className="flex items-center gap-2">
