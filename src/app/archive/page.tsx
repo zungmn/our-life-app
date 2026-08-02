@@ -337,10 +337,10 @@ export default function ArchivePage() {
                     {thumb ? <Paperclip size={24} className="text-teal-300" /> : <FolderOpen size={24} className="text-teal-300" />}
                   </div>
                 )}
-                <p className="text-sm font-semibold text-slate-800 truncate">{item.title}</p>
-                {item.purpose && <span className="text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full mt-1 inline-block">{item.purpose}</span>}
-                {pace && <p className="text-[10px] text-orange-500 mt-0.5">{item.distance}km · {pace}</p>}
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <p className="text-base font-semibold text-slate-800 truncate">{item.title}</p>
+                {item.purpose && <span className="text-[13px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full mt-1 inline-block">{item.purpose}</span>}
+                {pace && <p className="text-[13px] text-orange-500 mt-0.5">{item.distance}km · {pace}</p>}
+                <p className="text-[13px] text-slate-400 mt-0.5">
                   {item.item_date ? format(new Date(item.item_date), 'yyyy.M.d') : format(new Date(item.created_at), 'yyyy.M.d')}
                 </p>
               </button>
