@@ -464,15 +464,23 @@ export default function ArchivePage() {
               {(form.category === '사진기록' || form.category === '마라톤' || form.category === '청첩장') && (
                 <div>
                   <label className="text-xs text-slate-500 mb-1 block">{form.category === '마라톤' ? '사진 (함께 찍은 사진)' : form.category === '청첩장' ? '청첩장 사진 (세무용)' : '사진 (여러 장)'}</label>
+                  {form.photos.length > 1 && <p className="text-[11px] text-slate-400 mb-1.5">⭐ 를 누르면 그 사진이 <b className="text-teal-600">대표사진</b>(목록 썸네일)이 됩니다.</p>}
                   <div className="flex flex-wrap gap-2">
                     {form.photos.map((url, i) => (
-                      <div key={i} className="relative w-16 h-16">
+                      <div key={i} className={`relative w-20 h-20 rounded-lg ${i === 0 ? 'ring-2 ring-teal-400' : ''}`}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt="" onClick={() => setLightbox(url)} className="w-16 h-16 object-cover rounded-lg border border-slate-200 cursor-pointer" />
+                        <img src={url} alt="" onClick={() => setLightbox(url)} className="w-20 h-20 object-cover rounded-lg border border-slate-200 cursor-pointer" />
+                        {i === 0 ? (
+                          <span className="absolute bottom-0.5 left-0.5 bg-teal-500 text-white text-[9px] font-medium px-1 py-0.5 rounded">대표</span>
+                        ) : (
+                          <button type="button" title="대표사진으로 지정"
+                            onClick={() => setForm(f => { const p = [...f.photos]; const [m] = p.splice(i, 1); return { ...f, photos: [m, ...p] } })}
+                            className="absolute bottom-0.5 left-0.5 bg-black/45 text-white text-[11px] leading-none w-5 h-5 rounded flex items-center justify-center hover:bg-teal-500 transition-colors">⭐</button>
+                        )}
                         <button onClick={() => setForm(f => ({ ...f, photos: f.photos.filter((_, j) => j !== i) }))} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">×</button>
                       </div>
                     ))}
-                    <label className="w-16 h-16 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-teal-300 text-slate-400 text-xs">
+                    <label className="w-20 h-20 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-teal-300 text-slate-400 text-xs">
                       {uploading ? '...' : '+ 사진'}
                       <input type="file" accept="image/*" multiple className="hidden" onChange={e => { if (e.target.files?.length) handlePhotos(e.target.files) }} />
                     </label>
