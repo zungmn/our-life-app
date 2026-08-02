@@ -164,6 +164,7 @@ export default function ArchivePage() {
   const cats = CATEGORIES
   const displayed = items.filter(i => i.category === filterCat)
   const isImage = (url: string) => /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(url)
+  const isPdf = (url: string) => /\.pdf($|\?)/i.test(url)
 
   // 청첩장 연도 선택지
   const inviteYears = [...new Set(items.filter(i => i.category === '청첩장' && (i as any).item_date).map(i => new Date((i as any).item_date).getFullYear()))].sort((a, b) => b - a)
@@ -327,6 +328,10 @@ export default function ArchivePage() {
                 {thumb && isImage(thumb) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={thumb} alt={item.title} loading="lazy" className="w-full aspect-[2/3] object-cover rounded-lg mb-2" />
+                ) : thumb && isPdf(thumb) ? (
+                  <div className="w-full aspect-[2/3] rounded-lg mb-2 overflow-hidden bg-slate-50 border border-slate-100 relative">
+                    <iframe src={`${thumb}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} title={item.title} className="w-full h-full pointer-events-none" />
+                  </div>
                 ) : (
                   <div className="w-full aspect-[2/3] bg-teal-50 rounded-lg flex items-center justify-center mb-2">
                     {thumb ? <Paperclip size={24} className="text-teal-300" /> : <FolderOpen size={24} className="text-teal-300" />}
@@ -367,6 +372,11 @@ export default function ArchivePage() {
                 {isImage(selected.file_url) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={selected.file_url} alt="" onClick={() => setLightbox(selected.file_url!)} className="w-full rounded-lg max-h-72 object-contain bg-slate-50 cursor-pointer" />
+                ) : isPdf(selected.file_url) ? (
+                  <div>
+                    <iframe src={`${selected.file_url}#view=FitH`} title="미리보기" className="w-full h-[60vh] rounded-lg border border-slate-200 bg-slate-50" />
+                    <a href={selected.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-500 hover:underline mt-1"><ExternalLink size={13} /> 새 탭에서 크게 보기</a>
+                  </div>
                 ) : (
                   <a href={selected.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-blue-500 hover:underline"><ExternalLink size={14} /> {selected.category === '마라톤' ? '완주 기록증' : '파일'} 열기</a>
                 )}
