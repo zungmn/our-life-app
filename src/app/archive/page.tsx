@@ -338,9 +338,9 @@ export default function ArchivePage() {
                   </div>
                 )}
                 <p className="text-base font-semibold text-slate-800 truncate">{item.title}</p>
-                {item.purpose && <span className="text-[13px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full mt-1 inline-block">{item.purpose}</span>}
-                {pace && <p className="text-[13px] text-orange-500 mt-0.5">{item.distance}km · {pace}</p>}
-                <p className="text-[13px] text-slate-400 mt-0.5">
+                {item.purpose && <span className="text-sm bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full mt-1 inline-block">{item.purpose}</span>}
+                {pace && <p className="text-sm text-orange-500 mt-0.5">{item.distance}km · {pace}</p>}
+                <p className="text-sm text-slate-400 mt-0.5">
                   {item.item_date ? format(new Date(item.item_date), 'yyyy.M.d') : format(new Date(item.created_at), 'yyyy.M.d')}
                 </p>
               </button>
