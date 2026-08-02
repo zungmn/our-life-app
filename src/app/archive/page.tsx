@@ -119,8 +119,19 @@ export default function ArchivePage() {
     setForm(f => ({ ...f, photos: [...f.photos, ...urls] }))
     setUploading(false)
   }
-  const downloadPhoto = async (url: string) => {
-    try { const r = await fetch(url); const b = await r.blob(); const o = URL.createObjectURL(b); const a = document.createElement('a'); a.href = o; a.download = url.split('/').pop()?.split('?')[0] || 'photo'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(o) } catch { window.open(url, '_blank') }
+  const downloadPhoto = async (url: string, name?: string) => {
+    try { const r = await fetch(url); const b = await r.blob(); const o = URL.createObjectURL(b); const a = document.createElement('a'); a.href = o; a.download = name || url.split('/').pop()?.split('?')[0] || 'photo'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(o) } catch { window.open(url, '_blank') }
+  }
+  const extOf = (url: string) => (url.split('?')[0].split('.').pop() || 'jpg').toLowerCase()
+  // 상세 모달: 완주기록증 + 사진 전체를 순서대로 다운로드
+  const downloadItemAll = async (it: ArchiveItem) => {
+    const base = (it.title || 'archive').replace(/[\\/:*?"<>|]+/g, '_')
+    const jobs: { u: string; n: string }[] = []
+    if (it.file_url) jobs.push({ u: it.file_url, n: `${base}_기록증.${extOf(it.file_url)}` })
+    ;(it.photos || []).forEach((u, i) => jobs.push({ u, n: `${base}_${i + 1}.${extOf(u)}` }))
+    setDownloading(true)
+    for (const { u, n } of jobs) { await downloadPhoto(u, n); await new Promise(r => setTimeout(r, 300)) }
+    setDownloading(false)
   }
 
   const openAdd = () => { setEditItem(null); setForm({ ...EMPTY_FORM, category: filterCat === '계정' ? '사진기록' : filterCat, item_date: TODAY }); setShowModal(true) }
@@ -350,20 +361,39 @@ export default function ArchivePage() {
               </div>
               <button onClick={() => setSelected(null)}><X size={20} className="text-slate-400" /></button>
             </div>
-            {/* 완주기록증 / 대표 파일 */}
-            {selected.file_url && (isImage(selected.file_url) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={selected.file_url} alt="" onClick={() => setLightbox(selected.file_url!)} className="w-full rounded-lg mb-2 max-h-72 object-contain bg-slate-50 cursor-pointer" />
-            ) : (
-              <a href={selected.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-blue-500 hover:underline mb-2"><ExternalLink size={14} /> 파일 열기</a>
-            ))}
-            {/* 사진들 */}
-            {selected.photos && selected.photos.length > 0 && (
-              <div className="grid grid-cols-4 gap-1.5 mb-3">
-                {selected.photos.map((url, i) => (
+            {/* 완주기록증 / 대표 파일 (+ 개별 다운로드) */}
+            {selected.file_url && (
+              <div className="mb-2">
+                {isImage(selected.file_url) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={url} alt="" onClick={() => setLightbox(url)} className="w-full aspect-square object-cover rounded-lg cursor-pointer hover:opacity-80" />
-                ))}
+                  <img src={selected.file_url} alt="" onClick={() => setLightbox(selected.file_url!)} className="w-full rounded-lg max-h-72 object-contain bg-slate-50 cursor-pointer" />
+                ) : (
+                  <a href={selected.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-blue-500 hover:underline"><ExternalLink size={14} /> {selected.category === '마라톤' ? '완주 기록증' : '파일'} 열기</a>
+                )}
+                <button onClick={() => downloadPhoto(selected.file_url!, `${(selected.title || 'archive').replace(/[\\/:*?"<>|]+/g, '_')}_기록증.${extOf(selected.file_url!)}`)}
+                  className="flex items-center gap-1 text-xs text-slate-500 hover:text-teal-600 transition-colors mt-1">
+                  <Download size={13} /> {selected.category === '마라톤' ? '완주기록증' : '파일'} 다운로드
+                </button>
+              </div>
+            )}
+            {/* 사진들 (+ 일괄 다운로드: 기록증 포함) */}
+            {((selected.photos && selected.photos.length > 0) || selected.file_url) && (
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-slate-400">{selected.photos?.length ? `사진 ${selected.photos.length}장` : ''}</span>
+                  <button onClick={() => downloadItemAll(selected)} disabled={downloading}
+                    className="flex items-center gap-1 text-xs bg-teal-500 text-white px-2.5 py-1 rounded-lg hover:bg-teal-600 disabled:opacity-50 transition-colors">
+                    <Download size={13} /> {downloading ? '다운로드 중…' : '사진 일괄 다운로드'}
+                  </button>
+                </div>
+                {selected.photos && selected.photos.length > 0 && (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {selected.photos.map((url, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={i} src={url} alt="" onClick={() => setLightbox(url)} className="w-full aspect-square object-cover rounded-lg cursor-pointer hover:opacity-80" />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {selected.note && <div className="bg-slate-50 rounded-lg p-3 mb-4"><p className="text-sm text-slate-700 whitespace-pre-wrap">{selected.note}</p></div>}
