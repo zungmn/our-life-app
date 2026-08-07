@@ -520,11 +520,25 @@ export default function ExpensesPage() {
     let s = 0; for (let i = 1; i <= 6; i++) s += hospByMonth[format(subMonths(base, i), 'yyyy-MM')] || 0
     return { dPrev: deltaPct(cur, pm), dYear: deltaPct(cur, ly), dAvg6: deltaPct(cur, s / 6) }
   }
-  // 증감률 배지 (상승 빨강, 하락 파랑)
-  const deltaBadge = (d: number | null, label: string) => (
+  // 순수익(수입−병원경비) 증감: 전월 / 작년동월 / 최근6개월 평균 대비
+  const profitOfMonth = (k: string) => revMonth(k) - (hospByMonth[k] || 0)
+  const profitDeltas = (k: string) => {
+    const [y, m] = k.split('-').map(Number)
+    const base = new Date(y, m - 1, 1)
+    const cur = profitOfMonth(k)
+    const pm = profitOfMonth(format(subMonths(base, 1), 'yyyy-MM'))
+    const ly = profitOfMonth(`${y - 1}-${String(m).padStart(2, '0')}`)
+    let s = 0; for (let i = 1; i <= 6; i++) s += profitOfMonth(format(subMonths(base, i), 'yyyy-MM'))
+    return { dPrev: deltaPct(cur, pm), dYear: deltaPct(cur, ly), dAvg6: deltaPct(cur, s / 6) }
+  }
+  // 증감률 배지. 기본(경비): 상승 빨강·하락 파랑 / profit=true(순수익): 상승 초록·하락 빨강
+  const deltaBadge = (d: number | null, label: string, profit = false) => (
     <span className="inline-flex items-center gap-0.5 text-xs">
       <span className="text-slate-400">{label}</span>
-      {d == null ? <span className="text-slate-300">–</span> : <span className={d > 0 ? 'text-red-500' : d < 0 ? 'text-blue-500' : 'text-slate-400'}>{d > 0 ? '▲' : d < 0 ? '▼' : ''}{Math.abs(d)}%</span>}
+      {d == null ? <span className="text-slate-300">–</span> : <span className={
+        profit ? (d > 0 ? 'text-green-600' : d < 0 ? 'text-red-500' : 'text-slate-400')
+               : (d > 0 ? 'text-red-500' : d < 0 ? 'text-blue-500' : 'text-slate-400')
+      }>{d > 0 ? '▲' : d < 0 ? '▼' : ''}{Math.abs(d)}%</span>}
     </span>
   )
 
@@ -764,7 +778,7 @@ export default function ExpensesPage() {
               {/* 월 카드 (최신 월 먼저) */}
               <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-2 w-full">
                 {monthCards.map(k => {
-                  const a = monthAgg(k); const profit = a.revenue - a.hospital; const d = hospDeltas(k)
+                  const a = monthAgg(k); const profit = a.revenue - a.hospital; const d = hospDeltas(k); const pd = profitDeltas(k)
                   const active = analysisMonth === k
                   return (
                     <button key={k} onClick={() => setAnalysisMonth(active ? null : k)}
@@ -777,8 +791,15 @@ export default function ExpensesPage() {
                         <div className="flex justify-between"><span className="text-green-500 font-medium">수입</span><span className="text-slate-600">{won(a.revenue)}</span></div>
                         <div className="flex justify-between"><span className="text-rose-400 font-medium">경비</span><span className="text-slate-600">{won(a.hospital)}</span></div>
                       </div>
-                      <div className="flex justify-between items-center gap-1 border-t border-slate-50 pt-1.5 mt-auto text-sm">
-                        {deltaBadge(d.dPrev, '전월')}{deltaBadge(d.dYear, '작년')}{deltaBadge(d.dAvg6, '6M')}
+                      <div className="border-t border-slate-50 pt-1.5 mt-auto space-y-0.5">
+                        <div className="flex items-center gap-1 text-sm">
+                          <span className="text-[11px] font-semibold text-rose-400 w-8 flex-shrink-0">경비</span>
+                          <div className="flex-1 flex justify-between items-center">{deltaBadge(d.dPrev, '전월')}{deltaBadge(d.dYear, '작년')}{deltaBadge(d.dAvg6, '6M')}</div>
+                        </div>
+                        <div className="flex items-center gap-1 text-sm">
+                          <span className="text-[11px] font-semibold text-green-600 w-8 flex-shrink-0">순익</span>
+                          <div className="flex-1 flex justify-between items-center">{deltaBadge(pd.dPrev, '전월', true)}{deltaBadge(pd.dYear, '작년', true)}{deltaBadge(pd.dAvg6, '6M', true)}</div>
+                        </div>
                       </div>
                     </button>
                   )
