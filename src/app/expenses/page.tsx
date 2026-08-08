@@ -9,6 +9,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } f
 import { Plus, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import DateInput from '@/components/DateInput'
 import { holidaysForYears } from '@/lib/holidays'
+import ScopeDetail from './ScopeDetail'
 
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 const toNum = (s: string) => parseInt((s || '').replace(/[^0-9]/g, '') || '0', 10)
@@ -55,6 +56,7 @@ export default function ExpensesPage() {
   const [catOpen, setCatOpen] = useState(false)
   const [uploadName, setUploadName] = useState('')
   const [statPeriod, setStatPeriod] = useState<'month' | 'year'>('month')
+  const [detailScope, setDetailScope] = useState<null | 'hospital' | 'household' | 'saving'>(null)
   const [statYear, setStatYear] = useState(new Date().getFullYear())
   const [analysisMonth, setAnalysisMonth] = useState<string | null>(null) // A카드: 특정 월 상세, null=6개월평균
   const [yearItemsRaw, setYearItemsRaw] = useState<CalItem[]>([])
@@ -586,10 +588,22 @@ export default function ExpensesPage() {
             ))}
           </div>
           {tab === 'stats' && (
-            <div className="flex gap-1 border-l border-slate-200 pl-2">
+            <div className="flex gap-1 border-l border-slate-200 pl-2 flex-wrap">
               {([['month', '월간'], ['year', '연간']] as const).map(([k, l]) => (
-                <button key={k} onClick={() => { setStatPeriod(k); setAnalysisMonth(null) }}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${statPeriod === k ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:bg-slate-100'}`}>
+                <button key={k} onClick={() => { setStatPeriod(k); setDetailScope(null); setAnalysisMonth(null) }}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${detailScope === null && statPeriod === k ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:bg-slate-100'}`}>
+                  {l}
+                </button>
+              ))}
+              {viewer === 'eddy' && ([['hospital', '경비'], ['household', '가계'], ['saving', '저축']] as const).map(([k, l]) => (
+                <button key={k} onClick={() => setDetailScope(k)}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${detailScope === k ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:bg-slate-100'}`}>
+                  {l}
+                </button>
+              ))}
+              {viewer !== 'eddy' && ([['household', '가계'], ['saving', '저축']] as const).map(([k, l]) => (
+                <button key={k} onClick={() => setDetailScope(k)}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${detailScope === k ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:bg-slate-100'}`}>
                   {l}
                 </button>
               ))}
@@ -759,8 +773,13 @@ export default function ExpensesPage() {
         </div>
       </>)}
 
-      {/* Stats */}
-      {tab === 'stats' && (
+      {/* Stats: 경비/가계/저축 세부 페이지 */}
+      {tab === 'stats' && detailScope && (
+        <ScopeDetail scope={detailScope} items={allItems} revenueMonth={revMonth} />
+      )}
+
+      {/* Stats: 월간/연간 */}
+      {tab === 'stats' && !detailScope && (
         <div className="space-y-4">
           {/* 연도 선택 (월간: 그 해 12개월) */}
           {statPeriod === 'month' && (
