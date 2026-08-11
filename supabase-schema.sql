@@ -165,3 +165,8 @@ GRANT ALL ON TABLE balance_logs TO anon, authenticated;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS google_id text;
 CREATE INDEX IF NOT EXISTS events_google_id_idx ON events(google_id);
 -- 토큰은 app_state('google_auth')에 저장됨 (app_state 테이블 필요)
+
+-- ===== 성능: 인덱스 (가계부 데이터가 쌓일수록 조회 속도 유지) =====
+CREATE INDEX IF NOT EXISTS transactions_date_idx ON transactions(date);
+CREATE INDEX IF NOT EXISTS transactions_owner_idx ON transactions(owner);
+CREATE INDEX IF NOT EXISTS clinic_finance_date_idx ON clinic_finance(date);

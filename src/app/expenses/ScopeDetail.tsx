@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { catColorOf2 } from '@/lib/constants'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 export type SItem = { date: string; amount: number; type: 'income' | 'expense'; memo?: string; category: string; scope: string; is_saving: boolean }
 
@@ -21,7 +22,7 @@ function prevMonths(m: string, n: number) {
   return arr
 }
 
-type Insight = { kind: 'up' | 'down' | 'new' | 'info' | 'top'; tag: string; body: string }
+type Insight = { kind: 'up' | 'down' | 'new' | 'info' | 'top'; tag: string; body: string; items?: { memo: string; amount: number; date?: string }[] }
 
 export default function ScopeDetail({ scope, items, revenueMonth }: {
   scope: 'hospital' | 'household' | 'saving'
@@ -31,6 +32,7 @@ export default function ScopeDetail({ scope, items, revenueMonth }: {
   const [view, setView] = useState<'month' | 'year'>('month')
   const [selMonth, setSelMonth] = useState<string | null>(null)
   const [selYear, setSelYear] = useState<string | null>(null)
+  const [savingOpen, setSavingOpen] = useState(true)
   const isSaving = scope === 'saving'
   const flow = isSaving ? '저축' : '지출'
 
@@ -109,14 +111,19 @@ export default function ScopeDetail({ scope, items, revenueMonth }: {
     const { rows, total, avg6Total, lyTotal } = monthDetail
     const out: Insight[] = []
     const thr = Math.max(total * 0.03, isSaving ? 100000 : 200000)
+    // 해당 월·카테고리의 실제 내역(무엇인지) 최대 6건
+    const itemsOf = (name: string) => mine
+      .filter(i => i.date.slice(0, 7) === curMonth && catOf(i) === name)
+      .sort((a, b) => b.amount - a.amount).slice(0, 6)
+      .map(i => ({ memo: i.memo || name, amount: i.amount, date: i.date }))
     if (rows[0] && rows[0].cur > 0) out.push({ kind: 'top', tag: rows[0].name, body: `이번 달 ${LABEL[scope]} 중 가장 큰 항목입니다. ${fmt(rows[0].cur)} (전체의 ${pct(rows[0].cur, total)}%).` })
-    // 신규
+    // 신규 (실제 항목 표시)
     for (const r of rows) {
-      if (r.avg6 < thr * 0.25 && r.cur >= thr) out.push({ kind: 'new', tag: r.name, body: isSaving ? `그동안 없던 종목에 이번 달 새로 ${fmt(r.cur)} 저축했습니다.` : `그동안 거의 없던 지출이 이번 달 새로 ${fmt(r.cur)} 발생했습니다. 일회성인지 확인이 필요합니다.` })
+      if (r.avg6 < thr * 0.25 && r.cur >= thr) out.push({ kind: 'new', tag: r.name, body: isSaving ? `그동안 없던 종목에 이번 달 새로 ${fmt(r.cur)} 저축했습니다.` : `그동안 거의 없던 지출이 이번 달 새로 ${fmt(r.cur)} 발생했습니다. 아래 내역을 확인하세요.`, items: itemsOf(r.name) })
     }
-    // 급증
+    // 급증 (실제 항목 표시)
     for (const r of rows) {
-      if (r.avg6 >= thr && r.cur >= r.avg6 * 1.4 && r.cur - r.avg6 >= thr * 0.5) out.push({ kind: 'up', tag: r.name, body: `평소(6개월 평균 ${won(r.avg6)})보다 ${pct(r.cur - r.avg6, r.avg6)}% 늘어 ${fmt(r.cur)}입니다.` })
+      if (r.avg6 >= thr && r.cur >= r.avg6 * 1.4 && r.cur - r.avg6 >= thr * 0.5) out.push({ kind: 'up', tag: r.name, body: `평소(6개월 평균 ${won(r.avg6)})보다 ${pct(r.cur - r.avg6, r.avg6)}% 늘어 ${fmt(r.cur)}입니다.`, items: itemsOf(r.name) })
     }
     // 급감
     for (const r of rows) {
@@ -131,8 +138,9 @@ export default function ScopeDetail({ scope, items, revenueMonth }: {
     if (avg6Total > 0) parts.push(`6개월 평균 대비 ${pct(total - avg6Total, avg6Total) >= 0 ? '+' : ''}${pct(total - avg6Total, avg6Total)}%`)
     if (lyTotal > 0) parts.push(`작년 동월 대비 ${pct(total - lyTotal, lyTotal) >= 0 ? '+' : ''}${pct(total - lyTotal, lyTotal)}%`)
     out.push({ kind: 'info', tag: '총 ' + LABEL[scope], body: `${fmt(total)}${parts.length ? ' · ' + parts.join(', ') : ''}${scope === 'hospital' && monthDetail.rev > 0 ? ` · 매출 대비 경비율 ${pct(total, monthDetail.rev)}%` : ''}` })
-    return out.slice(0, 8)
-  }, [monthDetail, scope, isSaving])
+    return out.slice(0, 10)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthDetail, scope, isSaving, mine, curMonth])
 
   const yearInsights: Insight[] = useMemo(() => {
     if (!yearDetail) return []
@@ -170,6 +178,17 @@ export default function ScopeDetail({ scope, items, revenueMonth }: {
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${KIND_STYLE[ins.kind].badge}`}>{ins.tag}</span>
               </div>
               <p className="text-[13px] text-slate-700 leading-relaxed">{ins.body}</p>
+              {ins.items && ins.items.length > 0 && (
+                <div className="mt-1.5 space-y-0.5 bg-white/60 rounded-md p-2">
+                  {ins.items.map((it, j) => (
+                    <div key={j} className="flex items-center gap-2 text-xs text-slate-600">
+                      <span className="flex-1 truncate">• {it.memo}</span>
+                      {it.date && <span className="text-slate-400 flex-shrink-0">{it.date.slice(5).replace('-', '/')}</span>}
+                      <span className="font-medium text-slate-700 flex-shrink-0">{fmt(it.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -205,8 +224,62 @@ export default function ScopeDetail({ scope, items, revenueMonth }: {
               className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${view === k ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>{l}</button>
           ))}
         </div>
-        {isSaving && <span className="text-sm text-slate-500">총 저축(누적) <b className="text-indigo-600">{fmt(grandTotal)}</b></span>}
+        {isSaving && (
+          <button onClick={() => setSavingOpen(o => !o)} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+            <span className={`inline-block mr-1 transition-transform ${savingOpen ? 'rotate-90' : ''}`}>▶</span>
+            총 저축(누적) <b className="text-indigo-600">{fmt(grandTotal)}</b>
+          </button>
+        )}
       </div>
+
+      {/* 저축: 연도별 요약 (왼쪽 숫자 · 오른쪽 그래프) */}
+      {isSaving && !empty && savingOpen && (() => {
+        const yearsAsc = [...yearKeys].sort()
+        const chartData = yearsAsc.map(y => ({ year: `${y}년`, ...byYear[y] }))
+        const cats = byCatAll.map(c => c.name)
+        return (
+          <div className="card p-4">
+            <h4 className="text-sm font-semibold text-slate-700 mb-3">연도별 저축 요약</h4>
+            <div className="grid md:grid-cols-2 gap-4 items-center">
+              {/* 왼쪽: 숫자 */}
+              <div className="space-y-2">
+                {yearKeys.map(y => {
+                  const obj = byYear[y]; const tot = totalOf(obj)
+                  const parts = Object.entries(obj).sort((a, b) => b[1] - a[1])
+                  return (
+                    <div key={y} className="border-b border-slate-50 pb-1.5 last:border-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-slate-800">{y}년</span>
+                        <span className="text-sm font-bold text-indigo-600">{fmt(tot)}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                        {parts.map(([n, v]) => (
+                          <span key={n} className="text-xs text-slate-500">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle" style={{ background: colorFor(n) }} />
+                            {n} {fmt(v)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {/* 오른쪽: 그래프 (연도별 종목 누적 막대) */}
+              <div>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={chartData} margin={{ top: 6, right: 6, left: -12, bottom: 0 }}>
+                    <XAxis dataKey="year" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${Math.round(v / 10000)}만`} />
+                    <Tooltip formatter={(v, n) => [fmt(Number(v)), n]} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    {cats.map(c => <Bar key={c} dataKey={c} stackId="s" fill={colorFor(c)} radius={[2, 2, 0, 0]} />)}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {empty ? (
         <p className="text-sm text-slate-400 py-8 text-center">아직 {LABEL[scope]} 내역이 없어요.</p>

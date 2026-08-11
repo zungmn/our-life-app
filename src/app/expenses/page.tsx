@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase, Transaction, ClinicFinance } from '@/lib/supabase'
 import { BUDGET_CATEGORIES, INCOME_CATEGORIES, SCOPE_LABEL, BudgetScope, catScopeOf, catSavingOf, catColorOf2, normalizeCat } from '@/lib/constants'
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, getDay, isToday, subDays, addDays, isSameMonth } from 'date-fns'
@@ -167,29 +167,33 @@ export default function ExpensesPage() {
   useEffect(() => { if (tab === 'stats' && statPeriod === 'year') fetchYear() }, [tab, statPeriod, fetchYear])
 
   // 통계 전체 기간 데이터 (월별/연별 개요) — Supabase 1000행 제한 대비 페이지네이션
+  // 필요한 컬럼만 select + 뷰어별 1회만 로드(통계 탭 재진입 시 재요청 방지)
+  const allLoadedFor = useRef<string>('')
   const fetchAll = useCallback(async () => {
     const v = (localStorage.getItem('viewer') as 'eddy' | 'judy') || 'eddy'
+    if (allLoadedFor.current === v) return // 이미 이 뷰어로 로드함
     const txRows: Transaction[] = []
     for (let from = 0; ; from += 1000) {
-      const { data } = await supabase.from('transactions').select('*').or(`owner.eq.${v},owner.is.null`).range(from, from + 999)
+      const { data } = await supabase.from('transactions').select('id,date,amount,type,memo,category').or(`owner.eq.${v},owner.is.null`).range(from, from + 999)
       if (!data || data.length === 0) break
-      txRows.push(...data)
+      txRows.push(...(data as Transaction[]))
       if (data.length < 1000) break
     }
     let items: CalItem[] = txRows.map(txToItem)
     if (v === 'eddy') {
       const cfRows: ClinicFinance[] = []
       for (let from = 0; ; from += 1000) {
-        const { data } = await supabase.from('clinic_finance').select('*').range(from, from + 999)
+        const { data } = await supabase.from('clinic_finance').select('id,date,amount,type,name,category,is_saving').range(from, from + 999)
         if (!data || data.length === 0) break
-        cfRows.push(...data)
+        cfRows.push(...(data as ClinicFinance[]))
         if (data.length < 1000) break
       }
       items = [...items, ...cfRows.map(cfToItem)]
     }
+    allLoadedFor.current = v
     setAllItems(items)
-  }, [viewer])
-  useEffect(() => { if (tab === 'stats') fetchAll() }, [tab, fetchAll])
+  }, [])
+  useEffect(() => { if (tab === 'stats') fetchAll() }, [tab, viewer, fetchAll])
 
   // 덴트웹 파일에서 총 매출 자동 인식 (csv/html/텍스트)
   const handleRevenueFile = async (file: File) => {
