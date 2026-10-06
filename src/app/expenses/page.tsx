@@ -502,9 +502,11 @@ export default function ExpensesPage() {
     return arr
   })()
   // 병원경비 6개월(지난달까지) 평균 분류별
+  // 기준은 항상 '오늘'(이번 달 제외, 직전 6개월) — 캘린더에서 보고 있는 달(currentDate)을 옮겨도 평균이 같이 바뀌지 않게 고정
   const hosp6Avg = (() => {
+    const todayBase = new Date()
     const months: string[] = []
-    for (let i = 1; i <= 6; i++) months.push(format(subMonths(currentDate, i), 'yyyy-MM'))
+    for (let i = 1; i <= 6; i++) months.push(format(subMonths(todayBase, i), 'yyyy-MM'))
     const sum: Record<string, number> = {}
     for (const k of months) { const cm = hospCatByMonth[k] || {}; for (const c of Object.keys(cm)) sum[c] = (sum[c] || 0) + cm[c] }
     const cats = Object.entries(sum).map(([name, tot]) => ({ name, avg: Math.round(tot / 6), color: catColorOf2(name === '임대료+관리비' ? '임대료' : name) }))
@@ -834,7 +836,7 @@ export default function ExpensesPage() {
                   <div className="flex items-center gap-2 mb-2">
                     {analysisMonth && <button onClick={() => setAnalysisMonth(null)} className="text-slate-400 hover:text-slate-700 text-lg leading-none">←</button>}
                     <h3 className="font-semibold text-slate-800 text-[15px] flex-1">🏥 병원 경비 분석</h3>
-                    <span className="text-[11px] text-slate-400">{analysisMonth ? `${analysisMonth.slice(0, 4)}년 ${parseInt(analysisMonth.slice(5, 7))}월` : '최근 6개월 평균'}</span>
+                    <span className="text-[11px] text-slate-400">{analysisMonth ? `${analysisMonth.slice(0, 4)}년 ${parseInt(analysisMonth.slice(5, 7))}월` : `최근 6개월 평균 (${parseInt(hosp6Avg.months[5].slice(5, 7))}~${parseInt(hosp6Avg.months[0].slice(5, 7))}월)`}</span>
                   </div>
                   {(() => {
                     const data = analysisMonth ? hospMonthDetail(analysisMonth) : { total: hosp6Avg.total, cats: hosp6Avg.cats.map(c => ({ name: c.name, amt: c.avg, pct: c.pct, color: c.color })) }
